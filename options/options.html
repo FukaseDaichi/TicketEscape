@@ -7,69 +7,160 @@
     <style>
       :root {
         color-scheme: light;
+        --base-color: #f1f6f3;
+        --base-color-deep: #e6efe9;
+        --surface-color: #ffffff;
+        --surface-muted: #f6faf7;
+        --text-color: #152019;
+        --muted-color: #546359;
+        --border-color: #ccdad1;
+        --accent-color: #1f9d72;
+        --accent-color-strong: #187a59;
+        --accent-glow: rgba(31, 157, 114, 0.45);
         font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
       }
       body {
         margin: 0;
-        padding: 20px;
-        background: #f7f7f7;
-        color: #1f1f1f;
+        min-height: 100vh;
+        padding: 28px 16px 56px;
+        display: flex;
+        justify-content: center;
+        background:
+          radial-gradient(circle at 10% 10%, #f9fffc 0%, transparent 40%),
+          radial-gradient(circle at 100% 0%, #edf7f1 0%, transparent 32%),
+          linear-gradient(145deg, var(--base-color), var(--base-color-deep));
+        color: var(--text-color);
       }
       h1 {
-        margin-top: 0;
-        font-size: 22px;
+        margin: 0;
+        font-size: 30px;
+        letter-spacing: 0.02em;
+      }
+      h2 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+      .page {
+        width: min(980px, 100%);
+        display: grid;
+        gap: 16px;
+      }
+      .hero {
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 20px 22px;
+        box-shadow: 0 14px 30px rgba(17, 31, 23, 0.08);
+      }
+      .hero p {
+        margin: 8px 0 0;
+        color: var(--muted-color);
+        font-size: 14px;
       }
       .card {
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 16px;
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 10px 28px rgba(28, 46, 36, 0.07);
       }
       .row {
         display: grid;
-        grid-template-columns: 220px 1fr;
-        gap: 8px;
+        grid-template-columns: 210px minmax(0, 1fr);
+        gap: 10px;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
       }
       label {
         font-weight: 700;
+        letter-spacing: 0.02em;
       }
       input[type="text"],
       input[type="number"],
       input[type="datetime-local"] {
         width: 100%;
         box-sizing: border-box;
-        padding: 8px;
-        border: 1px solid #c9c9c9;
-        border-radius: 6px;
+        padding: 10px 11px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--surface-muted);
+        color: var(--text-color);
+        transition: border-color 120ms ease, box-shadow 120ms ease,
+          background-color 120ms ease;
+      }
+      input:focus-visible {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 4px rgba(31, 157, 114, 0.15);
+        background: #ffffff;
       }
       .button-row {
         display: flex;
-        gap: 8px;
+        gap: 10px;
         flex-wrap: wrap;
       }
+      .action-buttons {
+        justify-content: center;
+        margin-top: 2px;
+      }
+      .action-buttons button {
+        min-width: 160px;
+        font-size: 15px;
+        padding: 11px 18px;
+      }
+      .center-button-row {
+        justify-content: center;
+      }
       button {
-        border: 1px solid #2f2f2f;
-        border-radius: 6px;
-        background: #fff;
-        padding: 8px 12px;
+        border: 1px solid #244634;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 9px 14px;
         font-weight: 700;
         cursor: pointer;
+        transition: transform 120ms ease, border-color 120ms ease,
+          box-shadow 120ms ease, background-color 120ms ease, color 120ms ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+        border-color: var(--accent-color);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+      button:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(31, 157, 114, 0.22);
       }
       button.primary {
-        background: #1f78ff;
-        border-color: #1f78ff;
+        background: var(--accent-color);
+        border-color: var(--accent-color);
         color: #fff;
+      }
+      button.primary:hover {
+        border-color: var(--accent-color-strong);
+        background: var(--accent-color-strong);
+      }
+      button.confirm-button {
+        border-color: var(--accent-color-strong);
+        color: var(--accent-color-strong);
+      }
+      button.confirm-button.attention {
+        animation: confirmPulse 1s ease-in-out infinite;
+      }
+      button.primary.attention-ticket {
+        animation: standbyPulse 0.95s ease-in-out infinite;
       }
       .plan-table {
         width: 100%;
         border-collapse: collapse;
+        background: var(--surface-muted);
+        border-radius: 10px;
+        overflow: hidden;
       }
       .plan-table th,
       .plan-table td {
-        border-bottom: 1px solid #e5e5e5;
+        border-bottom: 1px solid #dfebe4;
         padding: 8px 4px;
         text-align: left;
       }
@@ -79,10 +170,23 @@
       .status {
         font-size: 13px;
         white-space: pre-wrap;
-        background: #fafafa;
-        border: 1px solid #ddd;
+        background: var(--surface-muted);
+        border: 1px solid var(--border-color);
         border-radius: 6px;
         padding: 10px;
+      }
+      .countdown {
+        font-size: 15px;
+        font-weight: 700;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .action-feedback {
+        margin-top: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .action-feedback .countdown {
+        margin-top: 0;
       }
       .guide {
         margin: 0 0 14px;
@@ -90,12 +194,12 @@
         font-size: 14px;
       }
       .guide li {
-        margin-bottom: 4px;
+        margin-bottom: 6px;
       }
       .note {
         margin: 0 0 10px;
         font-size: 12px;
-        color: #4b4b4b;
+        color: var(--muted-color);
       }
       .input-with-help {
         display: grid;
@@ -103,14 +207,14 @@
       }
       .field-help {
         font-size: 12px;
-        color: #666;
+        color: var(--muted-color);
       }
       details.advanced {
         margin-top: 12px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         padding: 10px;
-        background: #fcfcfc;
+        background: var(--surface-muted);
       }
       details.advanced summary {
         cursor: pointer;
@@ -121,124 +225,161 @@
         align-items: center;
         gap: 8px;
       }
+
+      @keyframes confirmPulse {
+        0% {
+          background: #ffffff;
+          color: var(--accent-color-strong);
+          box-shadow: 0 0 0 0 var(--accent-glow);
+        }
+        45% {
+          background: var(--accent-color);
+          color: #ffffff;
+          box-shadow: 0 0 0 8px rgba(31, 157, 114, 0);
+        }
+        100% {
+          background: #ffffff;
+          color: var(--accent-color-strong);
+          box-shadow: 0 0 0 0 rgba(31, 157, 114, 0);
+        }
+      }
+
+      @keyframes standbyPulse {
+        0% {
+          background: var(--accent-color);
+          border-color: var(--accent-color);
+          box-shadow: 0 0 0 0 rgba(31, 157, 114, 0.4);
+        }
+        50% {
+          background: #ea6d3f;
+          border-color: #ea6d3f;
+          box-shadow: 0 0 0 8px rgba(234, 109, 63, 0);
+        }
+        100% {
+          background: var(--accent-color);
+          border-color: var(--accent-color);
+          box-shadow: 0 0 0 0 rgba(31, 157, 114, 0);
+        }
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 20px 10px 30px;
+        }
+        h1 {
+          font-size: 25px;
+        }
+        .card,
+        .hero {
+          padding: 15px;
+        }
+        .row {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+      }
     </style>
   </head>
   <body>
-    <h1>TicketEscape 設定</h1>
-
-    <section class="card">
-      <h2>基本設定</h2>
-      <p class="note">
-        まずは下の2項目だけ入力してください。詳細設定は通常変更不要です。
-      </p>
-      <ol class="guide">
-        <li>対象URLを入力</li>
-        <li>実行時刻（JST）を入力</li>
-        <li>「フォーム解析」で券種を取り込む</li>
-        <li>数量を設定して「保存」</li>
-      </ol>
-      <div class="row">
-        <label for="targetUrl">対象URL</label>
-        <div class="input-with-help">
-          <input
-            id="targetUrl"
-            type="text"
-            placeholder="https://escape.id/..."
-          />
-          <div class="field-help">購入ページURLをそのまま貼り付けます。</div>
-        </div>
-      </div>
-      <div class="row">
-        <label for="triggerAt">実行時刻 (JST)</label>
-        <div class="input-with-help">
-          <input id="triggerAt" type="datetime-local" step="1" />
-          <div class="field-help">チケット発売時刻をJSTで設定します。</div>
-        </div>
-      </div>
-
-      <details class="advanced">
-        <summary>詳細設定（通常は変更不要）</summary>
-        <p class="note">
-          次の項目は初期値のままで動作します。必要な場合のみ変更してください。
+    <main class="page">
+      <section class="hero">
+        <h1>TicketEscape 設定</h1>
+        <p>
+          URLと時刻を先に設定して「確認」し、券種を取得してから実行待機してください。
         </p>
+      </section>
+
+      <section class="card">
+        <h2>基本設定</h2>
+        <p class="note">
+          まずは下の2項目だけ入力してください。詳細設定は通常変更不要です。
+        </p>
+        <ol class="guide">
+          <li>対象URLを入力</li>
+          <li>実行時刻（JST）を入力</li>
+          <li>「確認」で券種を取り込む</li>
+          <li>数量を設定して「実行待機」</li>
+          <li>実行待機後はこの設定画面を開いたまま待機（0秒で自動遷移）</li>
+        </ol>
         <div class="row">
-          <label for="warmupSec">ウォームアップ秒数</label>
-          <div class="input-with-help">
-            <input id="warmupSec" type="number" min="0" max="3600" />
-            <div class="field-help">
-              実行前にページを開いて待機する秒数。初期値: 120
-            </div>
-          </div>
-        </div>
-        <div class="row">
-          <label for="retryMax">リトライ上限</label>
-          <div class="input-with-help">
-            <input id="retryMax" type="number" min="0" max="10" />
-            <div class="field-help">失敗時に再試行する回数。初期値: 3</div>
-          </div>
-        </div>
-        <div class="row">
-          <label for="retryIntervalsMs">リトライ間隔(ms, カンマ区切り)</label>
+          <label for="targetUrl">対象URL</label>
           <div class="input-with-help">
             <input
-              id="retryIntervalsMs"
+              id="targetUrl"
               type="text"
-              placeholder="200,400,800"
+              placeholder="https://escape.id/..."
             />
-            <div class="field-help">
-              各リトライまでの待機時間。初期値: 200,400,800
+            <div class="field-help">購入ページURLをそのまま貼り付けます。</div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="triggerAt">実行時刻 (JST)</label>
+          <div class="input-with-help">
+            <input id="triggerAt" type="datetime-local" step="1" />
+            <div class="field-help">チケット発売時刻をJSTで設定します。</div>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary>詳細設定（通常は変更不要）</summary>
+          <p class="note">
+            次の項目は初期値のままで動作します。必要な場合のみ変更してください。
+          </p>
+          <div class="row">
+            <label for="clickIntervalMs">クリック間隔(ms)</label>
+            <div class="input-with-help">
+              <input id="clickIntervalMs" type="number" min="5" max="500" />
+              <div class="field-help">ボタン連打時の間隔。初期値: 30</div>
             </div>
           </div>
-        </div>
-        <div class="row">
-          <label for="clickIntervalMs">クリック間隔(ms)</label>
-          <div class="input-with-help">
-            <input id="clickIntervalMs" type="number" min="5" max="500" />
-            <div class="field-help">ボタン連打時の間隔。初期値: 30</div>
-          </div>
-        </div>
-        <div class="row">
-          <label for="requireAgreement"
-            >フォーム内チェックボックスをすべてON</label
-          >
-          <div class="checkbox-wrap">
-            <input id="requireAgreement" type="checkbox" checked />
-            <span class="field-help"
-              >form内のチェックボックスをすべて自動チェックします（初期値:
-              ON）。</span
+          <div class="row">
+            <label for="requireAgreement"
+              >フォーム内チェックボックスをすべてON</label
             >
+            <div class="checkbox-wrap">
+              <input id="requireAgreement" type="checkbox" checked />
+              <span class="field-help"
+                >form内のチェックボックスをすべて自動チェックします（初期値:
+                ON）。</span
+              >
+            </div>
+          </div>
+        </details>
+
+        <input id="jobId" type="hidden" />
+        <div class="button-row action-buttons">
+          <button id="parseFormButton" class="confirm-button">確認</button>
+          <button id="saveButton" class="primary">実行待機</button>
+        </div>
+        <div class="action-feedback">
+          <div id="countdownText" class="status countdown">
+            カウントダウン未開始
           </div>
         </div>
-      </details>
+      </section>
 
-      <input id="jobId" type="hidden" />
-      <div class="button-row">
-        <button id="parseFormButton">フォーム解析</button>
-        <button id="saveButton" class="primary">保存</button>
-      </div>
-    </section>
+      <section class="card">
+        <h2>チケット数量設定</h2>
+        <table class="plan-table">
+          <thead>
+            <tr>
+              <th>券種名</th>
+              <th>数量</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="planRows"></tbody>
+        </table>
+        <div class="button-row center-button-row" style="margin-top: 8px">
+          <button id="addPlanButton">行を追加</button>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>チケット数量設定</h2>
-      <table class="plan-table">
-        <thead>
-          <tr>
-            <th>券種名</th>
-            <th>数量</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="planRows"></tbody>
-      </table>
-      <div class="button-row" style="margin-top: 8px">
-        <button id="addPlanButton">行を追加</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>ステータス</h2>
-      <div id="statusText" class="status">Ready</div>
-    </section>
+      <section class="card">
+        <h2>ステータス</h2>
+        <div id="statusText" class="status">Ready</div>
+      </section>
+    </main>
 
     <script src="../lib/shared.js"></script>
     <script src="./options.js"></script>

@@ -576,35 +576,34 @@
   }
 
   async function submitCart(form, selectorOverrides) {
-    const button = await waitForAsync(
-      () => {
-        const submit = findSubmitButton(form, selectorOverrides);
-        return submit && !submit.disabled ? submit : null;
-      },
-      {
-        errorCode: "E_SUBMIT_NOT_FOUND",
-        errorMessage: "Submit button not found or still disabled."
-      }
-    ).catch((error) => ({ __error: error }));
-    if (button && button.__error) {
-      return { ok: false, error: button.__error.message || "Submit button not found." };
-    }
-
     const beforeHref = location.href;
-    button.click();
+    let currentForm = form;
 
-    const observeStart = nowEpoch();
-    while (nowEpoch() - observeStart < 700) {
+    for (let attempt = 0; attempt < WAIT_MAX_ATTEMPTS; attempt += 1) {
       if (location.href !== beforeHref) {
         return { ok: true };
       }
-      if (!document.contains(form)) {
+      if (currentForm && !document.contains(currentForm)) {
         return { ok: true };
       }
-      await sleep(30);
+
+      const refreshedForm = findFormRoot(selectorOverrides);
+      if (refreshedForm) {
+        currentForm = refreshedForm;
+      }
+
+      const button = currentForm ? findSubmitButton(currentForm, selectorOverrides) : null;
+      if (button && !button.disabled) {
+        button.click();
+      }
+
+      await sleep(WAIT_INTERVAL_MS);
     }
 
-    return { ok: true };
+    return {
+      ok: false,
+      error: "Submit action was not reflected after repeated retries."
+    };
   }
 
   async function sendStatusUpdate(payload) {

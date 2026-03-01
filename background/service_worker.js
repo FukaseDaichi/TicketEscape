@@ -14,13 +14,15 @@ importScripts("../lib/shared.js");
     ensureEscapeUrl,
     toEpoch,
     createId,
-    parseRetryIntervals,
     clampInt
   } = shared;
 
   const LOG_LIMIT = 300;
   const ALARM_WARMUP_PREFIX = "te_warmup_";
   const ALARM_TRIGGER_PREFIX = "te_trigger_";
+  const TAB_LOAD_TIMEOUT_MS = 45000;
+  const TAB_MESSAGE_RETRIES = 160;
+  const TAB_MESSAGE_INTERVAL_MS = 250;
 
   chrome.runtime.onInstalled.addListener(() => {
     void setStatus({
@@ -121,16 +123,16 @@ importScripts("../lib/shared.js");
     }
 
     const tab = await createTargetTab(targetUrl, true);
-    await waitForTabComplete(tab.id, 25000);
+    await waitForTabCompleteBestEffort(tab.id, TAB_LOAD_TIMEOUT_MS);
     const parseResult = await sendMessageToTabWithRetry(
       tab.id,
       {
         type: MESSAGE_TYPES.PARSE_FORM_REQUEST,
-        timeoutMs: 25000,
+        timeoutMs: TAB_LOAD_TIMEOUT_MS,
         selectorOverrides
       },
-      60,
-      200
+      TAB_MESSAGE_RETRIES,
+      TAB_MESSAGE_INTERVAL_MS
     );
 
     await appendLog("PARSE_FORM", "Form parsed successfully.", {
@@ -204,12 +206,12 @@ importScripts("../lib/shared.js");
     }
 
     if (alarm.name === `${ALARM_WARMUP_PREFIX}${job.jobId}`) {
-      await dispatchExecution(job, { forceImmediate: false, reason: "warmup" });
+      // Compatibility path for old alarms created by previous versions.
       return;
     }
 
     if (alarm.name === `${ALARM_TRIGGER_PREFIX}${job.jobId}`) {
-      await dispatchExecution(job, { forceImmediate: true, reason: "trigger-fallback" });
+      await dispatchExecution(job, { forceImmediate: true, reason: "trigger" });
     }
   }
 
@@ -233,19 +235,32 @@ importScripts("../lib/shared.js");
           .filter((plan) => plan.ticketLabel)
       : [];
 
+    const selectorOverrides = sanitizeSelectorOverrides(input.selectorOverrides);
+
     return {
-      ...DEFAULT_JOB,
-      ...input,
       jobId: String(input.jobId || createId("job")),
       targetUrl,
       triggerAtJst: input.triggerAtJst,
-      warmupSec: clampInt(input.warmupSec, DEFAULT_JOB.warmupSec, 0, 3600),
-      retryMax: clampInt(input.retryMax, DEFAULT_JOB.retryMax, 0, 10),
-      retryIntervalsMs: parseRetryIntervals(input.retryIntervalsMs),
       clickIntervalMs: clampInt(input.clickIntervalMs, DEFAULT_JOB.clickIntervalMs, 5, 500),
       requireAgreement: input.requireAgreement !== false,
-      ticketPlans
+      ticketPlans,
+      ...(selectorOverrides ? { selectorOverrides } : {})
     };
+  }
+
+  function sanitizeSelectorOverrides(input) {
+    if (!input || typeof input !== "object") {
+      return null;
+    }
+
+    const next = {};
+    if (input.formRoot) {
+      next.formRoot = String(input.formRoot).trim();
+    }
+    if (input.submitButton) {
+      next.submitButton = String(input.submitButton).trim();
+    }
+    return Object.keys(next).length ? next : null;
   }
 
   async function scheduleJobAlarms(job) {
@@ -256,18 +271,12 @@ importScripts("../lib/shared.js");
       throw new Error("Cannot schedule: invalid trigger time.");
     }
 
-    const warmupEpoch = triggerEpoch - job.warmupSec * 1000;
     const now = Date.now();
-
-    if (warmupEpoch > now) {
-      chrome.alarms.create(`${ALARM_WARMUP_PREFIX}${job.jobId}`, { when: warmupEpoch });
-    } else if (triggerEpoch > now) {
-      chrome.alarms.create(`${ALARM_WARMUP_PREFIX}${job.jobId}`, { when: now + 500 });
+    if (triggerEpoch <= now) {
+      throw new Error("Cannot schedule: trigger time is in the past.");
     }
 
-    if (triggerEpoch > now) {
-      chrome.alarms.create(`${ALARM_TRIGGER_PREFIX}${job.jobId}`, { when: triggerEpoch });
-    }
+    chrome.alarms.create(`${ALARM_TRIGGER_PREFIX}${job.jobId}`, { when: triggerEpoch });
   }
 
   async function dispatchExecution(job, options) {
@@ -290,8 +299,8 @@ importScripts("../lib/shared.js");
       updatedAt: Date.now()
     });
 
-    const tab = await createTargetTab(job.targetUrl, true);
-    await waitForTabComplete(tab.id, 25000);
+    const tab = await resolveExecutionTab(job.targetUrl);
+    await waitForTabCompleteBestEffort(tab.id, TAB_LOAD_TIMEOUT_MS);
 
     const runId = createId("run");
     const dispatchResponse = await sendMessageToTabWithRetry(
@@ -302,8 +311,8 @@ importScripts("../lib/shared.js");
         triggerEpoch,
         job
       },
-      60,
-      200
+      TAB_MESSAGE_RETRIES,
+      TAB_MESSAGE_INTERVAL_MS
     );
 
     if (!dispatchResponse || !dispatchResponse.ok) {
@@ -385,6 +394,50 @@ importScripts("../lib/shared.js");
     await Promise.all(alarms.map((alarm) => alarmClear(alarm.name)));
   }
 
+  async function resolveExecutionTab(targetUrl) {
+    const deadline = Date.now() + 500;
+    while (Date.now() <= deadline) {
+      const reusableTab = await findReusableTargetTab(targetUrl);
+      if (reusableTab) {
+        return reusableTab;
+      }
+      await wait(40);
+    }
+    return createTargetTab(targetUrl, true);
+  }
+
+  async function findReusableTargetTab(targetUrl) {
+    const normalizedTargetUrl = normalizeUrlForCompare(targetUrl);
+    if (!normalizedTargetUrl) {
+      return null;
+    }
+
+    const tabs = await tabQuery({
+      url: ["https://escape.id/*"]
+    });
+    const candidates = tabs.filter((tab) => {
+      if (!tab || typeof tab.id !== "number") {
+        return false;
+      }
+      return normalizeUrlForCompare(tab.url) === normalizedTargetUrl;
+    });
+    if (!candidates.length) {
+      return null;
+    }
+
+    candidates.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
+    return candidates[0];
+  }
+
+  function normalizeUrlForCompare(rawUrl) {
+    try {
+      const parsed = new URL(String(rawUrl || ""));
+      return `${parsed.origin}${parsed.pathname}${parsed.search}`;
+    } catch (_) {
+      return "";
+    }
+  }
+
   async function createTargetTab(url, active) {
     const tab = await tabCreate({
       url,
@@ -437,6 +490,18 @@ importScripts("../lib/shared.js");
         resolve();
       }
     });
+  }
+
+  async function waitForTabCompleteBestEffort(tabId, timeoutMs) {
+    try {
+      await waitForTabComplete(tabId, timeoutMs);
+    } catch (error) {
+      await appendLog("TAB_WAIT_TIMEOUT", "Continuing even though tab did not report complete.", {
+        tabId,
+        timeoutMs,
+        error: error && error.message ? error.message : "unknown error"
+      });
+    }
   }
 
   async function sendMessageToTabWithRetry(tabId, payload, retries, intervalMs) {
@@ -517,6 +582,19 @@ importScripts("../lib/shared.js");
           return;
         }
         resolve(tab);
+      });
+    });
+  }
+
+  function tabQuery(queryInfo) {
+    return new Promise((resolve, reject) => {
+      chrome.tabs.query(queryInfo, (tabs) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve(tabs || []);
       });
     });
   }

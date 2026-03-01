@@ -10,108 +10,80 @@
   document.addEventListener("DOMContentLoaded", () => {
     bindElements();
     bindEvents();
-    void refreshStatus();
+    void loadJobSummary();
   });
 
   function bindElements() {
-    elements.statusState = document.getElementById("statusState");
-    elements.statusDetail = document.getElementById("statusDetail");
     elements.jobUrl = document.getElementById("jobUrl");
     elements.jobTrigger = document.getElementById("jobTrigger");
-    elements.jobTicketCount = document.getElementById("jobTicketCount");
-    elements.lastRunStatus = document.getElementById("lastRunStatus");
-    elements.lastRunDetail = document.getElementById("lastRunDetail");
-    elements.executeNowButton = document.getElementById("executeNowButton");
-    elements.refreshButton = document.getElementById("refreshButton");
+    elements.messageText = document.getElementById("messageText");
     elements.openOptionsButton = document.getElementById("openOptionsButton");
   }
 
   function bindEvents() {
-    elements.refreshButton.addEventListener("click", () => {
-      void refreshStatus();
-    });
-
-    elements.executeNowButton.addEventListener("click", () => {
-      void executeNow();
-    });
-
     elements.openOptionsButton.addEventListener("click", () => {
       chrome.runtime.openOptionsPage();
     });
   }
 
-  async function refreshStatus() {
+  async function loadJobSummary() {
     try {
       const response = await sendMessage({
         type: MESSAGE_TYPES.GET_STATUS
       });
       if (!response.ok) {
-        renderError(response.error || "ステータス取得失敗");
+        renderError(response.error || "ジョブ情報の取得に失敗しました。");
         return;
       }
-      renderStatus(response);
+      renderJob(response.job || null);
     } catch (error) {
       renderError(error.message);
     }
   }
 
-  async function executeNow() {
-    elements.executeNowButton.disabled = true;
-    try {
-      const response = await sendMessage({
-        type: MESSAGE_TYPES.EXECUTE_NOW
-      });
-      if (!response.ok) {
-        renderError(response.error || "実行失敗");
-        return;
-      }
-      elements.statusDetail.textContent = "手動実行を開始しました。";
-      await refreshStatus();
-    } catch (error) {
-      renderError(error.message);
-    } finally {
-      elements.executeNowButton.disabled = false;
-    }
-  }
-
-  function renderStatus(payload) {
-    const status = payload.status || {};
-    const job = payload.job || null;
-    const lastRun = payload.lastRun || null;
-
-    elements.statusState.textContent = status.state || "-";
-    elements.statusDetail.textContent = status.detail || "-";
-
-    if (job) {
-      elements.jobUrl.textContent = job.targetUrl || "-";
-      elements.jobTrigger.textContent = job.triggerAtJst || "-";
-      elements.jobTicketCount.textContent = String(
-        Array.isArray(job.ticketPlans) ? job.ticketPlans.length : 0
-      );
-      elements.executeNowButton.disabled = false;
-    } else {
+  function renderJob(job) {
+    if (!job) {
       elements.jobUrl.textContent = "未設定";
       elements.jobTrigger.textContent = "未設定";
-      elements.jobTicketCount.textContent = "0";
-      elements.executeNowButton.disabled = true;
+      elements.messageText.textContent = "設定がない場合は先に設定画面で保存してください。";
+      return;
     }
 
-    if (lastRun) {
-      elements.lastRunStatus.textContent = lastRun.status || "-";
-      if (lastRun.errorCode) {
-        elements.lastRunDetail.textContent = `${lastRun.errorCode}: ${lastRun.errorDetail || ""}`;
-      } else {
-        elements.lastRunDetail.textContent = `runId=${lastRun.runId || "-"}`;
-      }
-    } else {
-      elements.lastRunStatus.textContent = "-";
-      elements.lastRunDetail.textContent = "実行履歴なし";
-    }
+    elements.jobUrl.textContent = job.targetUrl || "未設定";
+    elements.jobTrigger.textContent = formatJstDatetime(job.triggerAtJst);
+    elements.messageText.textContent = "現在の設定内容です。変更は設定画面で行ってください。";
   }
 
   function renderError(message) {
-    elements.statusState.textContent = "ERROR";
-    elements.statusDetail.textContent = String(message || "unknown error");
+    elements.jobUrl.textContent = "取得失敗";
+    elements.jobTrigger.textContent = "取得失敗";
+    elements.messageText.textContent = String(message || "unknown error");
+  }
+
+  function formatJstDatetime(value) {
+    const epoch = Date.parse(String(value || ""));
+    if (!Number.isFinite(epoch)) {
+      return "未設定";
+    }
+
+    const formatter = new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+    const parts = formatter.formatToParts(new Date(epoch));
+    const map = Object.create(null);
+    for (const part of parts) {
+      if (part.type !== "literal") {
+        map[part.type] = part.value;
+      }
+    }
+    return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second}`;
   }
 
   function sendMessage(message) {
