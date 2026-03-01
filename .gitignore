@@ -1,0 +1,31 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies / build outputs
+node_modules/
+dist/
+build/
+coverage/
+
+# Env / local config
+.env
+.env.*
+!.env.example
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Chrome extension package artifacts
+*.zip
+*.crx

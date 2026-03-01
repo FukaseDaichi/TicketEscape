@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TicketEscape Options</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 20px;
+        background: #f7f7f7;
+        color: #1f1f1f;
+      }
+      h1 {
+        margin-top: 0;
+        font-size: 22px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      label {
+        font-weight: 700;
+      }
+      input[type="text"],
+      input[type="number"],
+      input[type="datetime-local"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px;
+        border: 1px solid #c9c9c9;
+        border-radius: 6px;
+      }
+      .button-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: 1px solid #2f2f2f;
+        border-radius: 6px;
+        background: #fff;
+        padding: 8px 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #1f78ff;
+        border-color: #1f78ff;
+        color: #fff;
+      }
+      .plan-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .plan-table th,
+      .plan-table td {
+        border-bottom: 1px solid #e5e5e5;
+        padding: 8px 4px;
+        text-align: left;
+      }
+      .plan-table input {
+        width: 100%;
+      }
+      .status {
+        font-size: 13px;
+        white-space: pre-wrap;
+        background: #fafafa;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>TicketEscape 設定</h1>
+
+    <section class="card">
+      <div class="row">
+        <label for="targetUrl">対象URL</label>
+        <input id="targetUrl" type="text" placeholder="https://escape.id/..." />
+      </div>
+      <div class="row">
+        <label for="triggerAt">実行時刻 (JST)</label>
+        <input id="triggerAt" type="datetime-local" step="1" />
+      </div>
+      <div class="row">
+        <label for="warmupSec">ウォームアップ秒数</label>
+        <input id="warmupSec" type="number" min="0" max="3600" />
+      </div>
+      <div class="row">
+        <label for="retryMax">リトライ上限</label>
+        <input id="retryMax" type="number" min="0" max="10" />
+      </div>
+      <div class="row">
+        <label for="retryIntervalsMs">リトライ間隔(ms, カンマ区切り)</label>
+        <input id="retryIntervalsMs" type="text" placeholder="200,400,800" />
+      </div>
+      <div class="row">
+        <label for="clickIntervalMs">クリック間隔(ms)</label>
+        <input id="clickIntervalMs" type="number" min="5" max="500" />
+      </div>
+      <div class="row">
+        <label for="requireAgreement">同意チェックを有効化</label>
+        <input id="requireAgreement" type="checkbox" checked />
+      </div>
+      <input id="jobId" type="hidden" />
+      <div class="button-row">
+        <button id="parseFormButton">フォーム解析</button>
+        <button id="saveButton" class="primary">保存</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>チケット数量設定</h2>
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th>券種名</th>
+            <th>数量</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="planRows"></tbody>
+      </table>
+      <div class="button-row" style="margin-top: 8px">
+        <button id="addPlanButton">行を追加</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>ステータス</h2>
+      <div id="statusText" class="status">Ready</div>
+    </section>
+
+    <script src="../lib/shared.js"></script>
+    <script src="./options.js"></script>
+  </body>
+</html>

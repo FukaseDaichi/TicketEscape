@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "TicketEscape",
+  "version": "0.1.0",
+  "description": "Timed ticket cart automation for escape.id using DOM click() operations.",
+  "permissions": ["storage", "tabs", "alarms", "notifications"],
+  "host_permissions": ["https://escape.id/*"],
+  "background": {
+    "service_worker": "background/service_worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://escape.id/*"],
+      "js": ["lib/shared.js", "content/content_script.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
