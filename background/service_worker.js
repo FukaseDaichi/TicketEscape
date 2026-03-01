@@ -126,7 +126,7 @@ importScripts("../lib/shared.js");
       tab.id,
       {
         type: MESSAGE_TYPES.PARSE_FORM_REQUEST,
-        timeoutMs: 20000,
+        timeoutMs: 25000,
         selectorOverrides
       },
       60,

@@ -6,6 +6,8 @@
 
   const { MESSAGE_TYPES, STATUS, normalizeLabel, sleep, nowEpoch } = shared;
   let activeRunId = null;
+  const WAIT_INTERVAL_MS = 50;
+  const WAIT_MAX_ATTEMPTS = 500;
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || !message.type) {
@@ -47,10 +49,10 @@
   });
 
   async function handleParseFormRequest(message) {
-    const timeoutMs = Number.isFinite(message.timeoutMs) ? message.timeoutMs : 20000;
+    const timeoutMs = Number.isFinite(message.timeoutMs) ? message.timeoutMs : 25000;
     const selectorOverrides = message.selectorOverrides || {};
-    const form = await waitForForm(timeoutMs, selectorOverrides);
-    const tickets = extractTicketRows(form).map((row) => ({
+    const { form, ticketRows } = await waitForTicketRows(timeoutMs, selectorOverrides);
+    const tickets = ticketRows.map((row) => ({
       ticketLabel: row.label,
       currentQty: row.currentQty,
       priceText: row.priceText
@@ -100,13 +102,12 @@
 
     try {
       addStep(STATUS.WAIT_FORM, "Waiting for ticket form");
-      const form = await waitForForm(25000, job.selectorOverrides || {});
+      const { form, ticketRows } = await waitForTicketRows(25000, job.selectorOverrides || {});
 
       addStep(STATUS.PREPARE_TICKETS, "Adjusting ticket quantities");
-      const ticketRows = extractTicketRows(form);
       await applyTicketPlan(ticketRows, job.ticketPlans || [], job.clickIntervalMs || 30);
 
-      addStep(STATUS.PREPARE_TICKETS, "Ensuring agreement checkboxes");
+      addStep(STATUS.PREPARE_TICKETS, "Checking all checkboxes in form");
       await ensureAgreementChecks(form, job.requireAgreement !== false);
 
       addStep(STATUS.WAIT_TRIGGER, "Waiting for trigger timestamp");
@@ -138,6 +139,36 @@
     return err;
   }
 
+  async function waitForAsync(getter, options) {
+    const opts = options || {};
+    const intervalMs = Number.isFinite(opts.intervalMs) ? opts.intervalMs : WAIT_INTERVAL_MS;
+    const maxAttempts = Number.isFinite(opts.maxAttempts) ? opts.maxAttempts : WAIT_MAX_ATTEMPTS;
+    const isReady = typeof opts.isReady === "function" ? opts.isReady : (value) => Boolean(value);
+    let lastGetterError = null;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      let value = null;
+      try {
+        value = getter();
+        lastGetterError = null;
+      } catch (error) {
+        lastGetterError = error;
+      }
+      if (isReady(value)) {
+        return value;
+      }
+      await sleep(intervalMs);
+    }
+
+    if (lastGetterError) {
+      throw makeError(
+        opts.errorCode || "E_WAIT_TIMEOUT",
+        `${opts.errorMessage || "Async wait timed out."} cause=${lastGetterError.message || "unknown"}`
+      );
+    }
+    throw makeError(opts.errorCode || "E_WAIT_TIMEOUT", opts.errorMessage || "Async wait timed out.");
+  }
+
   function findFormRoot(selectorOverrides) {
     if (selectorOverrides && selectorOverrides.formRoot) {
       const overrideRoot = document.querySelector(selectorOverrides.formRoot);
@@ -161,89 +192,85 @@
     return null;
   }
 
-  async function waitForForm(timeoutMs, selectorOverrides) {
-    const existing = findFormRoot(selectorOverrides);
-    if (existing) {
-      return existing;
-    }
+  async function waitForTicketRows(timeoutMs, selectorOverrides) {
+    const maxAttempts = timeoutMs
+      ? Math.max(1, Math.min(WAIT_MAX_ATTEMPTS, Math.ceil(timeoutMs / WAIT_INTERVAL_MS)))
+      : WAIT_MAX_ATTEMPTS;
 
-    return new Promise((resolve, reject) => {
-      let finished = false;
-      const onResolved = (form) => {
-        if (finished) {
-          return;
-        }
-        finished = true;
-        cleanup();
-        resolve(form);
-      };
-      const onRejected = () => {
-        if (finished) {
-          return;
-        }
-        finished = true;
-        cleanup();
-        reject(makeError("E_FORM_TIMEOUT", "Ticket form did not appear before timeout."));
-      };
-
-      const observer = new MutationObserver(() => {
-        const form = findFormRoot(selectorOverrides);
-        if (form) {
-          onResolved(form);
-        }
-      });
-      observer.observe(document.documentElement || document.body, {
-        childList: true,
-        subtree: true
-      });
-
-      const pollTimer = setInterval(() => {
-        const form = findFormRoot(selectorOverrides);
-        if (form) {
-          onResolved(form);
-        }
-      }, 50);
-
-      const timeoutTimer = setTimeout(onRejected, timeoutMs);
-
-      function cleanup() {
-        observer.disconnect();
-        clearInterval(pollTimer);
-        clearTimeout(timeoutTimer);
-      }
+    const form = await waitForAsync(() => findFormRoot(selectorOverrides), {
+      maxAttempts,
+      errorCode: "E_FORM_TIMEOUT",
+      errorMessage: "Ticket form did not appear before timeout."
     });
+
+    const ticketRows = await waitForAsync(() => extractTicketRows(form), {
+      maxAttempts,
+      isReady: (rows) => Array.isArray(rows) && rows.length > 0,
+      errorCode: "E_TICKET_LIST_TIMEOUT",
+      errorMessage: "Form found but ticket rows are not ready yet."
+    });
+
+    return { form, ticketRows };
   }
 
   function extractTicketRows(form) {
-    let candidates = Array.from(form.querySelectorAll("ul > li"));
-    if (!candidates.length) {
-      candidates = Array.from(form.querySelectorAll("li"));
+    const ticketList = findTicketList(form);
+    if (!ticketList) {
+      return [];
     }
 
+    const candidates = getDirectLiChildren(ticketList);
     return candidates
       .map((row) => buildTicketRow(row))
       .filter((row) => row && row.label);
   }
 
-  function buildTicketRow(row) {
-    const textNodes = Array.from(row.querySelectorAll("p"))
-      .map((node) => String(node.textContent || "").trim())
-      .filter(Boolean);
+  function findTicketList(form) {
+    const lists = Array.from(form.querySelectorAll("ul"));
+    let bestList = null;
+    let bestScore = 0;
 
-    const label = findTicketLabel(textNodes);
+    for (const list of lists) {
+      const items = getDirectLiChildren(list);
+      if (!items.length) {
+        continue;
+      }
+
+      let score = 0;
+      for (const item of items) {
+        const label = findTicketLabelFromRow(item);
+        if (label) {
+          score += 2;
+        }
+        const counter = findCounterControls(item);
+        if (counter) {
+          score += 3;
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestList = list;
+      }
+    }
+
+    return bestList;
+  }
+
+  function getDirectLiChildren(list) {
+    return Array.from(list.children).filter((child) => child && child.tagName === "LI");
+  }
+
+  function buildTicketRow(row) {
+    const label = findTicketLabelFromRow(row);
     if (!label) {
       return null;
     }
 
-    const priceText = textNodes.find((text) => /円/.test(text)) || "";
-    const qtyNode = findQuantityNode(row);
+    const priceText = findPriceText(row);
+    const counter = findCounterControls(row);
+    const qtyNode = (counter && counter.qtyNode) || findQuantityNodeFallback(row);
     const currentQty = qtyNode ? parseQuantity(qtyNode.textContent) : 0;
-
-    const buttons = Array.from(row.querySelectorAll("button")).filter(
-      (button) => button.type !== "submit"
-    );
-    const minusButton = buttons[0] || null;
-    const plusButton = buttons[1] || null;
 
     return {
       row,
@@ -251,17 +278,22 @@
       priceText,
       qtyNode,
       currentQty,
-      minusButton,
-      plusButton
+      minusButton: counter ? counter.minusButton : null,
+      plusButton: counter ? counter.plusButton : null
     };
   }
 
-  function findTicketLabel(textNodes) {
-    for (const text of textNodes) {
-      if (/円/.test(text)) {
+  function findTicketLabelFromRow(row) {
+    const paragraphs = Array.from(row.querySelectorAll("p"));
+    for (const p of paragraphs) {
+      const text = String(p.textContent || "").trim();
+      if (!text) {
         continue;
       }
       if (/^\d+$/.test(text)) {
+        continue;
+      }
+      if (/円/.test(text)) {
         continue;
       }
       return text;
@@ -269,9 +301,72 @@
     return "";
   }
 
-  function findQuantityNode(row) {
-    const nodes = Array.from(row.querySelectorAll("p"));
-    return nodes.find((node) => /^\d+$/.test(String(node.textContent || "").trim())) || null;
+  function findPriceText(row) {
+    const paragraphs = Array.from(row.querySelectorAll("p"));
+    for (const p of paragraphs) {
+      const text = String(p.textContent || "").trim();
+      if (/円/.test(text)) {
+        return text;
+      }
+    }
+    return "";
+  }
+
+  function findQuantityNodeFallback(row) {
+    const paragraphs = Array.from(row.querySelectorAll("p"));
+    for (const p of paragraphs) {
+      const text = String(p.textContent || "").trim();
+      if (/^\d+$/.test(text)) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  function findCounterControls(row) {
+    const containers = Array.from(row.querySelectorAll("div"));
+    for (const container of containers) {
+      const children = Array.from(container.children);
+      if (children.length < 3) {
+        continue;
+      }
+
+      for (let i = 0; i <= children.length - 3; i += 1) {
+        const first = children[i];
+        const second = children[i + 1];
+        const third = children[i + 2];
+        if (!first || !second || !third) {
+          continue;
+        }
+        if (first.tagName !== "BUTTON" || second.tagName !== "P" || third.tagName !== "BUTTON") {
+          continue;
+        }
+
+        const qtyText = String(second.textContent || "").trim();
+        if (!/^\d+$/.test(qtyText)) {
+          continue;
+        }
+
+        return {
+          minusButton: first,
+          qtyNode: second,
+          plusButton: third
+        };
+      }
+    }
+    return null;
+  }
+
+  async function waitForCounterControlsAsync(rowInfo) {
+    const counter = await waitForAsync(() => findCounterControls(rowInfo.row), {
+      errorCode: "E_COUNTER_TIMEOUT",
+      errorMessage: `Counter controls not found for ${rowInfo.label}`
+    });
+
+    rowInfo.minusButton = counter.minusButton;
+    rowInfo.plusButton = counter.plusButton;
+    rowInfo.qtyNode = counter.qtyNode || rowInfo.qtyNode;
+    return counter;
   }
 
   function parseQuantity(value) {
@@ -293,10 +388,13 @@
     }
 
     for (const plan of ticketPlans) {
-      const normalizedPlan = normalizeLabel(plan.ticketLabel);
-      const rowInfo = ticketRows.find((row) => normalizeLabel(row.label) === normalizedPlan);
+      const rowInfo = findRowByTicketLabel(ticketRows, plan.ticketLabel);
       if (!rowInfo) {
-        throw makeError("E_TICKET_NOT_FOUND", `Ticket not found: ${plan.ticketLabel}`);
+        const available = ticketRows.map((row) => row.label).join(", ");
+        throw makeError(
+          "E_TICKET_NOT_FOUND",
+          `Ticket not found: ${plan.ticketLabel}. available=[${available}]`
+        );
       }
 
       const targetQty = Math.max(0, Number.parseInt(plan.targetQty, 10) || 0);
@@ -304,23 +402,65 @@
     }
   }
 
+  function findRowByTicketLabel(ticketRows, ticketLabel) {
+    const normalizedPlan = normalizeLabel(ticketLabel);
+    if (!normalizedPlan) {
+      return null;
+    }
+
+    const exact = ticketRows.find((row) => normalizeLabel(row.label) === normalizedPlan);
+    if (exact) {
+      return exact;
+    }
+
+    return (
+      ticketRows.find((row) => {
+        const normalizedRow = normalizeLabel(row.label);
+        return normalizedRow.includes(normalizedPlan) || normalizedPlan.includes(normalizedRow);
+      }) || null
+    );
+  }
+
   async function adjustQty(rowInfo, targetQty, clickIntervalMs) {
     const maxClickCount = 60;
     let guard = 0;
+
+    await waitForCounterControlsAsync(rowInfo);
+    const firstQty = getCurrentQty(rowInfo);
+    if (targetQty === 1 && firstQty === 0) {
+      await waitForAsync(
+        () => (rowInfo.plusButton && !rowInfo.plusButton.disabled ? rowInfo.plusButton : null),
+        {
+          errorCode: "E_QTY_ADJUST_FAILED",
+          errorMessage: `Plus button is not clickable for ${rowInfo.label}`
+        }
+      );
+      rowInfo.plusButton.click();
+      await sleep(clickIntervalMs);
+      await waitForQtyChange(rowInfo, firstQty, 200);
+      if (getCurrentQty(rowInfo) === 1) {
+        return;
+      }
+    }
+
     while (guard < maxClickCount) {
+      await waitForCounterControlsAsync(rowInfo);
       const current = getCurrentQty(rowInfo);
       if (current === targetQty) {
         return;
       }
 
       const shouldIncrease = current < targetQty;
-      const button = shouldIncrease ? rowInfo.plusButton : rowInfo.minusButton;
-      if (!button) {
-        throw makeError("E_QTY_ADJUST_FAILED", `Ticket controls are missing for ${rowInfo.label}`);
-      }
-      if (button.disabled) {
-        throw makeError("E_QTY_ADJUST_FAILED", `Ticket button is disabled for ${rowInfo.label}`);
-      }
+      const button = await waitForAsync(
+        () => {
+          const targetButton = shouldIncrease ? rowInfo.plusButton : rowInfo.minusButton;
+          return targetButton && !targetButton.disabled ? targetButton : null;
+        },
+        {
+          errorCode: "E_QTY_ADJUST_FAILED",
+          errorMessage: `Ticket button is disabled or missing for ${rowInfo.label}`
+        }
+      );
 
       const before = current;
       button.click();
@@ -338,7 +478,7 @@
       if (getCurrentQty(rowInfo) !== beforeQty) {
         return;
       }
-      await sleep(20);
+      await sleep(WAIT_INTERVAL_MS);
     }
   }
 
@@ -347,12 +487,13 @@
       return;
     }
 
-    let checkboxes = Array.from(form.querySelectorAll("input[type='checkbox'][required]"));
-    if (!checkboxes.length) {
-      checkboxes = Array.from(form.querySelectorAll("input[type='checkbox']"));
-    }
+    const checkboxes = Array.from(form.querySelectorAll("input[type='checkbox']"));
 
     for (const checkbox of checkboxes) {
+      if (checkbox.disabled) {
+        continue;
+      }
+
       if (checkbox.checked) {
         continue;
       }
@@ -372,7 +513,7 @@
       }
 
       if (!checkbox.checked) {
-        throw makeError("E_AGREEMENT_NOT_CHECKED", "Failed to check required agreement checkbox.");
+        throw makeError("E_AGREEMENT_NOT_CHECKED", "Failed to check checkbox in form.");
       }
     }
   }
@@ -435,17 +576,18 @@
   }
 
   async function submitCart(form, selectorOverrides) {
-    const button = findSubmitButton(form, selectorOverrides);
-    if (!button) {
-      return { ok: false, error: "Submit button not found." };
-    }
-
-    const waitEnabledStart = nowEpoch();
-    while (button.disabled && nowEpoch() - waitEnabledStart < 200) {
-      await sleep(20);
-    }
-    if (button.disabled) {
-      return { ok: false, error: "Submit button is disabled." };
+    const button = await waitForAsync(
+      () => {
+        const submit = findSubmitButton(form, selectorOverrides);
+        return submit && !submit.disabled ? submit : null;
+      },
+      {
+        errorCode: "E_SUBMIT_NOT_FOUND",
+        errorMessage: "Submit button not found or still disabled."
+      }
+    ).catch((error) => ({ __error: error }));
+    if (button && button.__error) {
+      return { ok: false, error: button.__error.message || "Submit button not found." };
     }
 
     const beforeHref = location.href;

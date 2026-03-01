@@ -84,40 +84,133 @@
         border-radius: 6px;
         padding: 10px;
       }
+      .guide {
+        margin: 0 0 14px;
+        padding-left: 18px;
+        font-size: 14px;
+      }
+      .guide li {
+        margin-bottom: 4px;
+      }
+      .note {
+        margin: 0 0 10px;
+        font-size: 12px;
+        color: #4b4b4b;
+      }
+      .input-with-help {
+        display: grid;
+        gap: 4px;
+      }
+      .field-help {
+        font-size: 12px;
+        color: #666;
+      }
+      details.advanced {
+        margin-top: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fcfcfc;
+      }
+      details.advanced summary {
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .checkbox-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
     </style>
   </head>
   <body>
     <h1>TicketEscape 設定</h1>
 
     <section class="card">
+      <h2>基本設定</h2>
+      <p class="note">
+        まずは下の2項目だけ入力してください。詳細設定は通常変更不要です。
+      </p>
+      <ol class="guide">
+        <li>対象URLを入力</li>
+        <li>実行時刻（JST）を入力</li>
+        <li>「フォーム解析」で券種を取り込む</li>
+        <li>数量を設定して「保存」</li>
+      </ol>
       <div class="row">
         <label for="targetUrl">対象URL</label>
-        <input id="targetUrl" type="text" placeholder="https://escape.id/..." />
+        <div class="input-with-help">
+          <input
+            id="targetUrl"
+            type="text"
+            placeholder="https://escape.id/..."
+          />
+          <div class="field-help">購入ページURLをそのまま貼り付けます。</div>
+        </div>
       </div>
       <div class="row">
         <label for="triggerAt">実行時刻 (JST)</label>
-        <input id="triggerAt" type="datetime-local" step="1" />
+        <div class="input-with-help">
+          <input id="triggerAt" type="datetime-local" step="1" />
+          <div class="field-help">チケット発売時刻をJSTで設定します。</div>
+        </div>
       </div>
-      <div class="row">
-        <label for="warmupSec">ウォームアップ秒数</label>
-        <input id="warmupSec" type="number" min="0" max="3600" />
-      </div>
-      <div class="row">
-        <label for="retryMax">リトライ上限</label>
-        <input id="retryMax" type="number" min="0" max="10" />
-      </div>
-      <div class="row">
-        <label for="retryIntervalsMs">リトライ間隔(ms, カンマ区切り)</label>
-        <input id="retryIntervalsMs" type="text" placeholder="200,400,800" />
-      </div>
-      <div class="row">
-        <label for="clickIntervalMs">クリック間隔(ms)</label>
-        <input id="clickIntervalMs" type="number" min="5" max="500" />
-      </div>
-      <div class="row">
-        <label for="requireAgreement">同意チェックを有効化</label>
-        <input id="requireAgreement" type="checkbox" checked />
-      </div>
+
+      <details class="advanced">
+        <summary>詳細設定（通常は変更不要）</summary>
+        <p class="note">
+          次の項目は初期値のままで動作します。必要な場合のみ変更してください。
+        </p>
+        <div class="row">
+          <label for="warmupSec">ウォームアップ秒数</label>
+          <div class="input-with-help">
+            <input id="warmupSec" type="number" min="0" max="3600" />
+            <div class="field-help">
+              実行前にページを開いて待機する秒数。初期値: 120
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="retryMax">リトライ上限</label>
+          <div class="input-with-help">
+            <input id="retryMax" type="number" min="0" max="10" />
+            <div class="field-help">失敗時に再試行する回数。初期値: 3</div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="retryIntervalsMs">リトライ間隔(ms, カンマ区切り)</label>
+          <div class="input-with-help">
+            <input
+              id="retryIntervalsMs"
+              type="text"
+              placeholder="200,400,800"
+            />
+            <div class="field-help">
+              各リトライまでの待機時間。初期値: 200,400,800
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="clickIntervalMs">クリック間隔(ms)</label>
+          <div class="input-with-help">
+            <input id="clickIntervalMs" type="number" min="5" max="500" />
+            <div class="field-help">ボタン連打時の間隔。初期値: 30</div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="requireAgreement"
+            >フォーム内チェックボックスをすべてON</label
+          >
+          <div class="checkbox-wrap">
+            <input id="requireAgreement" type="checkbox" checked />
+            <span class="field-help"
+              >form内のチェックボックスをすべて自動チェックします（初期値:
+              ON）。</span
+            >
+          </div>
+        </div>
+      </details>
+
       <input id="jobId" type="hidden" />
       <div class="button-row">
         <button id="parseFormButton">フォーム解析</button>
