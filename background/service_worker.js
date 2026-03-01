@@ -242,6 +242,7 @@ importScripts("../lib/shared.js");
       targetUrl,
       triggerAtJst: input.triggerAtJst,
       clickIntervalMs: clampInt(input.clickIntervalMs, DEFAULT_JOB.clickIntervalMs, 5, 500),
+      parallelTabCount: clampInt(input.parallelTabCount, DEFAULT_JOB.parallelTabCount, 1, 5),
       requireAgreement: input.requireAgreement !== false,
       ticketPlans,
       ...(selectorOverrides ? { selectorOverrides } : {})
@@ -291,6 +292,7 @@ importScripts("../lib/shared.js");
     if (!Number.isFinite(triggerEpoch)) {
       throw new Error("Invalid trigger timestamp.");
     }
+    const parallelTabCount = clampInt(job.parallelTabCount, DEFAULT_JOB.parallelTabCount, 1, 5);
 
     await setStatus({
       state: STATUS.WARMUP_START,
@@ -299,44 +301,90 @@ importScripts("../lib/shared.js");
       updatedAt: Date.now()
     });
 
-    const tab = await resolveExecutionTab(job.targetUrl);
-    await waitForTabCompleteBestEffort(tab.id, TAB_LOAD_TIMEOUT_MS);
+    const tabs = await resolveExecutionTabs(job.targetUrl, parallelTabCount);
+    await Promise.all(tabs.map((tab) => waitForTabCompleteBestEffort(tab.id, TAB_LOAD_TIMEOUT_MS)));
 
-    const runId = createId("run");
-    const dispatchResponse = await sendMessageToTabWithRetry(
-      tab.id,
-      {
-        type: MESSAGE_TYPES.EXECUTE_REQUEST,
-        runId,
-        triggerEpoch,
-        job
-      },
-      TAB_MESSAGE_RETRIES,
-      TAB_MESSAGE_INTERVAL_MS
+    const dispatchResults = await Promise.all(
+      tabs.map(async (tab) => {
+        const runId = createId("run");
+        try {
+          const dispatchResponse = await sendMessageToTabWithRetry(
+            tab.id,
+            {
+              type: MESSAGE_TYPES.EXECUTE_REQUEST,
+              runId,
+              triggerEpoch,
+              job
+            },
+            TAB_MESSAGE_RETRIES,
+            TAB_MESSAGE_INTERVAL_MS
+          );
+
+          if (!dispatchResponse || !dispatchResponse.ok) {
+            return {
+              ok: false,
+              tabId: tab.id,
+              error: (dispatchResponse && dispatchResponse.error) || "Execution dispatch rejected."
+            };
+          }
+
+          return {
+            ok: true,
+            tabId: tab.id,
+            runId
+          };
+        } catch (error) {
+          return {
+            ok: false,
+            tabId: tab.id,
+            error: error && error.message ? error.message : "Execution dispatch failed."
+          };
+        }
+      })
     );
 
-    if (!dispatchResponse || !dispatchResponse.ok) {
-      throw new Error((dispatchResponse && dispatchResponse.error) || "Execution dispatch rejected.");
+    const successDispatches = dispatchResults.filter((result) => result.ok);
+    const failedDispatches = dispatchResults.filter((result) => !result.ok);
+    if (!successDispatches.length) {
+      const firstFailure = failedDispatches[0];
+      throw new Error(
+        (firstFailure && firstFailure.error) || "Execution dispatch rejected on all tabs."
+      );
+    }
+
+    if (failedDispatches.length > 0) {
+      await appendLog("DISPATCH_PARTIAL_FAIL", "Some tabs rejected execution dispatch.", {
+        jobId: job.jobId,
+        reason: opts.reason || "scheduled",
+        failedTabIds: failedDispatches.map((item) => item.tabId),
+        failedCount: failedDispatches.length
+      });
     }
 
     await setStatus({
       state: STATUS.WAIT_TRIGGER,
       jobId: job.jobId,
-      runId,
-      detail: opts.reason || "scheduled",
+      runId: successDispatches[0].runId,
+      detail: `${opts.reason || "scheduled"} tabs=${successDispatches.length}/${tabs.length}`,
       updatedAt: Date.now()
     });
     await appendLog("DISPATCH", "Execution dispatched to content script.", {
       jobId: job.jobId,
-      runId,
+      runIds: successDispatches.map((item) => item.runId),
       triggerEpoch,
-      tabId: tab.id,
+      tabIds: successDispatches.map((item) => item.tabId),
+      requestedTabCount: parallelTabCount,
+      dispatchedCount: successDispatches.length,
       reason: opts.reason || "scheduled"
     });
 
     return {
-      runId,
-      tabId: tab.id,
+      runId: successDispatches[0].runId,
+      tabId: successDispatches[0].tabId,
+      runIds: successDispatches.map((item) => item.runId),
+      tabIds: successDispatches.map((item) => item.tabId),
+      requestedTabCount: parallelTabCount,
+      dispatchedCount: successDispatches.length,
       triggerEpoch
     };
   }
@@ -394,22 +442,33 @@ importScripts("../lib/shared.js");
     await Promise.all(alarms.map((alarm) => alarmClear(alarm.name)));
   }
 
-  async function resolveExecutionTab(targetUrl) {
+  async function resolveExecutionTabs(targetUrl, tabCount) {
+    const requestedCount = clampInt(tabCount, DEFAULT_JOB.parallelTabCount, 1, 5);
     const deadline = Date.now() + 500;
+    let reusableTabs = [];
+
     while (Date.now() <= deadline) {
-      const reusableTab = await findReusableTargetTab(targetUrl);
-      if (reusableTab) {
-        return reusableTab;
+      reusableTabs = await findReusableTargetTabs(targetUrl, requestedCount);
+      if (reusableTabs.length >= requestedCount) {
+        break;
       }
       await wait(40);
     }
-    return createTargetTab(targetUrl, true);
+
+    const selectedTabs = reusableTabs.slice(0, requestedCount);
+    const missingCount = Math.max(0, requestedCount - selectedTabs.length);
+    for (let i = 0; i < missingCount; i += 1) {
+      const shouldActivate = selectedTabs.length === 0 && i === 0;
+      const createdTab = await createTargetTab(targetUrl, shouldActivate);
+      selectedTabs.push(createdTab);
+    }
+    return selectedTabs;
   }
 
-  async function findReusableTargetTab(targetUrl) {
+  async function findReusableTargetTabs(targetUrl, limit) {
     const normalizedTargetUrl = normalizeUrlForCompare(targetUrl);
     if (!normalizedTargetUrl) {
-      return null;
+      return [];
     }
 
     const tabs = await tabQuery({
@@ -422,11 +481,12 @@ importScripts("../lib/shared.js");
       return normalizeUrlForCompare(tab.url) === normalizedTargetUrl;
     });
     if (!candidates.length) {
-      return null;
+      return [];
     }
 
     candidates.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
-    return candidates[0];
+    const maxCount = Number.isFinite(limit) ? Math.max(1, Number.parseInt(limit, 10)) : candidates.length;
+    return candidates.slice(0, maxCount);
   }
 
   function normalizeUrlForCompare(rawUrl) {

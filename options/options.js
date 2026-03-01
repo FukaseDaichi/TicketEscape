@@ -34,6 +34,7 @@
       targetUrl: document.getElementById("targetUrl"),
       triggerAt: document.getElementById("triggerAt"),
       clickIntervalMs: document.getElementById("clickIntervalMs"),
+      parallelTabCount: document.getElementById("parallelTabCount"),
       requireAgreement: document.getElementById("requireAgreement"),
       parseFormButton: document.getElementById("parseFormButton"),
       saveButton: document.getElementById("saveButton"),
@@ -83,6 +84,7 @@
 
   function setDefaultValues() {
     state.elements.clickIntervalMs.value = String(DEFAULT_JOB.clickIntervalMs);
+    state.elements.parallelTabCount.value = String(DEFAULT_JOB.parallelTabCount);
     state.elements.requireAgreement.checked = true;
     state.elements.triggerAt.value = formatLocalDatetimeInput(Date.now() + 10 * 60 * 1000);
     if (!state.elements.planRows.children.length) {
@@ -124,6 +126,9 @@
       state.elements.triggerAt.value = formatLocalDatetimeInput(triggerEpoch);
     }
     state.elements.clickIntervalMs.value = String(job.clickIntervalMs ?? DEFAULT_JOB.clickIntervalMs);
+    state.elements.parallelTabCount.value = String(
+      job.parallelTabCount ?? DEFAULT_JOB.parallelTabCount
+    );
     state.elements.requireAgreement.checked = job.requireAgreement !== false;
 
     state.elements.planRows.innerHTML = "";
@@ -204,6 +209,12 @@
       targetUrl,
       triggerAtJst,
       clickIntervalMs: clampInt(state.elements.clickIntervalMs.value, DEFAULT_JOB.clickIntervalMs, 5, 500),
+      parallelTabCount: clampInt(
+        state.elements.parallelTabCount.value,
+        DEFAULT_JOB.parallelTabCount,
+        1,
+        5
+      ),
       requireAgreement: state.elements.requireAgreement.checked,
       ticketPlans
     };
