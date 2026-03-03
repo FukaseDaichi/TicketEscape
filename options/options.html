@@ -13,53 +13,69 @@
       :root {
         color-scheme: light;
 
-        --bg:          #edf0f7;
-        --surface:     #ffffff;
+        --bg: #edf0f7;
+        --surface: #ffffff;
         --surface-sub: #f5f7fc;
-        --border:      #dde2ef;
-        --border-str:  #bdc5d8;
+        --border: #dde2ef;
+        --border-str: #bdc5d8;
 
-        --tx:    #141a2e;
-        --tx-b:  #3c4766;
-        --tx-m:  #7d89a2;
+        --tx: #141a2e;
+        --tx-b: #3c4766;
+        --tx-m: #7d89a2;
 
-        --ac:    #6c63ff;
-        --ac-h:  #5a52e8;
-        --ac-s:  rgba(108, 99, 255, 0.09);
+        --ac: #6c63ff;
+        --ac-h: #5a52e8;
+        --ac-s: rgba(108, 99, 255, 0.09);
         --ac-tx: #4f48d9;
-        --ac-glow: rgba(108, 99, 255, 0.40);
+        --ac-glow: rgba(108, 99, 255, 0.4);
 
-        --green:   #0bb870;
+        --green: #0bb870;
         --green-s: rgba(11, 184, 112, 0.11);
-        --amber:   #f0a500;
+        --amber: #f0a500;
         --amber-s: rgba(240, 165, 0, 0.11);
-        --red:     #e53535;
-        --red-s:   rgba(229, 53, 53, 0.11);
-        --blue:    #3b82f6;
-        --blue-s:  rgba(59, 130, 246, 0.11);
+        --red: #e53535;
+        --red-s: rgba(229, 53, 53, 0.11);
+        --blue: #3b82f6;
+        --blue-s: rgba(59, 130, 246, 0.11);
 
         --r1: 6px;
         --r2: 10px;
         --r3: 14px;
         --r4: 20px;
 
-        --sh1: 0 1px 3px rgba(20, 26, 46, .06), 0 1px 2px rgba(20, 26, 46, .04);
-        --sh2: 0 4px 14px rgba(20, 26, 46, .08), 0 2px 4px rgba(20, 26, 46, .04);
-        --sh3: 0 10px 30px rgba(20, 26, 46, .10), 0 4px 8px rgba(20, 26, 46, .04);
+        --sh1:
+          0 1px 3px rgba(20, 26, 46, 0.06), 0 1px 2px rgba(20, 26, 46, 0.04);
+        --sh2:
+          0 4px 14px rgba(20, 26, 46, 0.08), 0 2px 4px rgba(20, 26, 46, 0.04);
+        --sh3:
+          0 10px 30px rgba(20, 26, 46, 0.1), 0 4px 8px rgba(20, 26, 46, 0.04);
 
-        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
-                "Hiragino Sans", "Yu Gothic UI", sans-serif;
+        --font:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+          "Hiragino Sans", "Yu Gothic UI", sans-serif;
         --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
       }
 
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
       body {
         min-height: 100vh;
         padding: 32px 16px 64px;
         background:
-          radial-gradient(ellipse at 20% 0%, rgba(108,99,255,.06) 0%, transparent 50%),
-          radial-gradient(ellipse at 80% 100%, rgba(11,184,112,.05) 0%, transparent 45%),
+          radial-gradient(
+            ellipse at 20% 0%,
+            rgba(108, 99, 255, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 100%,
+            rgba(11, 184, 112, 0.05) 0%,
+            transparent 45%
+          ),
           var(--bg);
         color: var(--tx);
         font-family: var(--font);
@@ -96,11 +112,9 @@
         align-items: center;
         justify-content: center;
         font-size: 26px;
-        box-shadow: 0 4px 16px rgba(108, 99, 255, .30);
+        box-shadow: 0 4px 16px rgba(108, 99, 255, 0.3);
         flex-shrink: 0;
       }
-
-      .hero-text {}
 
       .hero-title {
         font-size: 22px;
@@ -137,7 +151,7 @@
         height: 32px;
         border-radius: var(--r2);
         background: var(--ac-s);
-        border: 1px solid rgba(108, 99, 255, .15);
+        border: 1px solid rgba(108, 99, 255, 0.15);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -234,7 +248,7 @@
         gap: 6px;
         padding: 5px 10px;
         background: var(--green-s);
-        border: 1px solid rgba(11, 184, 112, .20);
+        border: 1px solid rgba(11, 184, 112, 0.2);
         border-radius: var(--r1);
         font-size: 12px;
         font-weight: 600;
@@ -256,7 +270,10 @@
         color: var(--tx);
         font-family: var(--font);
         font-size: 13px;
-        transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+        transition:
+          border-color 120ms ease,
+          box-shadow 120ms ease,
+          background 120ms ease;
         outline: none;
         appearance: none;
         -webkit-appearance: none;
@@ -264,7 +281,7 @@
 
       input:focus {
         border-color: var(--ac);
-        box-shadow: 0 0 0 3px rgba(108, 99, 255, .14);
+        box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.14);
         background: var(--surface);
       }
 
@@ -312,7 +329,9 @@
         transition: background 120ms;
       }
 
-      details.advanced > summary::-webkit-details-marker { display: none; }
+      details.advanced > summary::-webkit-details-marker {
+        display: none;
+      }
 
       details.advanced > summary::before {
         content: "▶";
@@ -327,7 +346,7 @@
       }
 
       details.advanced > summary:hover {
-        background: rgba(108, 99, 255, .04);
+        background: rgba(108, 99, 255, 0.04);
       }
 
       .advanced-inner {
@@ -349,15 +368,19 @@
         font-size: 13px;
         font-weight: 700;
         cursor: pointer;
-        transition: background 120ms ease, border-color 120ms ease,
-          transform 80ms ease, box-shadow 120ms ease, color 120ms ease;
+        transition:
+          background 120ms ease,
+          border-color 120ms ease,
+          transform 80ms ease,
+          box-shadow 120ms ease,
+          color 120ms ease;
         border: 1px solid transparent;
         outline: none;
         white-space: nowrap;
       }
 
       .btn:focus-visible {
-        box-shadow: 0 0 0 3px rgba(108, 99, 255, .25);
+        box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.25);
       }
 
       .btn:active {
@@ -392,13 +415,13 @@
         border-color: var(--ac);
         color: #fff;
         min-width: 160px;
-        box-shadow: 0 2px 10px rgba(108, 99, 255, .28);
+        box-shadow: 0 2px 10px rgba(108, 99, 255, 0.28);
       }
       .btn-primary:hover {
         background: var(--ac-h);
         border-color: var(--ac-h);
         transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(108, 99, 255, .36);
+        box-shadow: 0 4px 16px rgba(108, 99, 255, 0.36);
       }
 
       /* Attention states */
@@ -407,11 +430,12 @@
       }
 
       .btn-primary.attention-standby {
-        animation: standby-pulse 1.0s ease-in-out infinite;
+        animation: standby-pulse 1s ease-in-out infinite;
       }
 
       @keyframes confirm-pulse {
-        0%, 100% {
+        0%,
+        100% {
           background: var(--surface);
           color: var(--ac-tx);
           box-shadow: 0 0 0 0 var(--ac-glow);
@@ -424,10 +448,11 @@
       }
 
       @keyframes standby-pulse {
-        0%, 100% {
+        0%,
+        100% {
           background: var(--ac);
           border-color: var(--ac);
-          box-shadow: 0 0 0 0 rgba(240, 165, 0, .40);
+          box-shadow: 0 0 0 0 rgba(240, 165, 0, 0.4);
         }
         50% {
           background: var(--amber);
@@ -479,13 +504,15 @@
         white-space: nowrap;
         pointer-events: none;
         opacity: 0;
-        transition: opacity 150ms ease, transform 150ms ease;
+        transition:
+          opacity 150ms ease,
+          transform 150ms ease;
         z-index: 10;
       }
 
       /* Arrow */
       .save-tip::after {
-        content: '';
+        content: "";
         position: absolute;
         top: 100%;
         left: 50%;
@@ -529,7 +556,9 @@
         flex-shrink: 0;
       }
 
-      .cd-num.col-standby { color: var(--blue); }
+      .cd-num.col-standby {
+        color: var(--blue);
+      }
 
       .cd-meta {
         flex: 1;
@@ -596,7 +625,7 @@
       }
 
       .ticket-table tbody tr:hover {
-        background: rgba(108, 99, 255, .025);
+        background: rgba(108, 99, 255, 0.025);
       }
 
       .ticket-table input[type="text"],
@@ -619,7 +648,10 @@
         font-weight: 600;
         color: var(--tx-m);
         cursor: pointer;
-        transition: background 120ms, border-color 120ms, color 120ms;
+        transition:
+          background 120ms,
+          border-color 120ms,
+          color 120ms;
         font-family: var(--font);
       }
 
@@ -636,25 +668,44 @@
       }
 
       @media (max-width: 720px) {
-        body { padding: 16px 10px 40px; }
-        .hero { padding: 16px 18px; flex-direction: column; align-items: flex-start; gap: 10px; }
-        .card { padding: 16px 16px; }
-        .field { grid-template-columns: 1fr; gap: 6px; }
-        .field-label { padding-top: 0; }
-        .guide-steps { gap: 6px; }
-        .step { font-size: 11px; }
+        body {
+          padding: 16px 10px 40px;
+        }
+        .hero {
+          padding: 16px 18px;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .card {
+          padding: 16px 16px;
+        }
+        .field {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+        .field-label {
+          padding-top: 0;
+        }
+        .guide-steps {
+          gap: 6px;
+        }
+        .step {
+          font-size: 11px;
+        }
       }
     </style>
   </head>
   <body>
     <main class="page">
-
       <!-- Hero -->
       <section class="hero">
         <div class="hero-logo">🎫</div>
         <div class="hero-text">
           <div class="hero-title">TicketEscape 設定</div>
-          <div class="hero-sub">URLと時刻を設定 → 「確認」で券種取得 → 「実行待機」で完了</div>
+          <div class="hero-sub">
+            URLと時刻を設定 → 「確認」で券種取得 → 「実行待機」で完了
+          </div>
         </div>
       </section>
 
@@ -667,17 +718,31 @@
 
         <div class="guide-steps">
           <div class="step"><span class="step-num">1</span>対象URLを入力</div>
-          <div class="step"><span class="step-num">2</span>実行時刻（JST）を入力</div>
-          <div class="step"><span class="step-num">3</span>「確認」で券種取得</div>
-          <div class="step"><span class="step-num">4</span>数量を設定して「実行待機」</div>
-          <div class="step"><span class="step-num">5</span>設定画面を開いたまま待機</div>
+          <div class="step">
+            <span class="step-num">2</span>実行時刻（JST）を入力
+          </div>
+          <div class="step">
+            <span class="step-num">3</span>「確認」で券種取得
+          </div>
+          <div class="step">
+            <span class="step-num">4</span>数量を設定して「実行待機」
+          </div>
+          <div class="step">
+            <span class="step-num">5</span>設定画面を開いたまま待機
+          </div>
         </div>
 
         <div class="field">
           <div class="field-label">対象URL</div>
           <div class="field-body">
-            <input id="targetUrl" type="text" placeholder="https://escape.id/..." />
-            <div class="field-help">購入ページのURLをそのまま貼り付けます。</div>
+            <input
+              id="targetUrl"
+              type="text"
+              placeholder="https://escape.id/..."
+            />
+            <div class="field-help">
+              購入ページのURLをそのまま貼り付けます。
+            </div>
             <div id="eventTitleBadge" class="ev-badge">
               <span>🎪</span>
               <span id="eventTitleText"></span>
@@ -696,26 +761,43 @@
         <details class="advanced">
           <summary>詳細設定（通常は変更不要）</summary>
           <div class="advanced-inner">
-            <div class="field" style="margin-bottom:0">
+            <div class="field" style="margin-bottom: 0">
               <div class="field-label">クリック間隔 (ms)</div>
               <div class="field-body">
-                <input id="clickIntervalMs" type="number" min="5" max="500" style="max-width:160px" />
+                <input
+                  id="clickIntervalMs"
+                  type="number"
+                  min="5"
+                  max="500"
+                  style="max-width: 160px"
+                />
                 <div class="field-help">ボタン連打の間隔。初期値: 30 ms</div>
               </div>
             </div>
-            <div class="field" style="margin-bottom:0">
+            <div class="field" style="margin-bottom: 0">
               <div class="field-label">並列実行数</div>
               <div class="field-body">
-                <input id="parallelTabCount" type="number" min="1" max="5" style="max-width:100px" />
-                <div class="field-help">同時に実行するタブ数。初期値: 1（最大: 5）</div>
+                <input
+                  id="parallelTabCount"
+                  type="number"
+                  min="1"
+                  max="5"
+                  style="max-width: 100px"
+                />
+                <div class="field-help">
+                  同時に実行するタブ数。初期値: 1（最大: 5）
+                </div>
               </div>
             </div>
-            <div class="field" style="margin-bottom:0">
+            <div class="field" style="margin-bottom: 0">
               <div class="field-label">チェックボックス自動ON</div>
               <div class="field-body">
                 <div class="checkbox-row">
                   <input id="requireAgreement" type="checkbox" checked />
-                  <label for="requireAgreement">フォーム内のチェックボックスをすべて自動チェック（初期値: ON）</label>
+                  <label for="requireAgreement"
+                    >フォーム内のチェックボックスをすべて自動チェック（初期値:
+                    ON）</label
+                  >
                 </div>
               </div>
             </div>
@@ -730,7 +812,9 @@
             <button id="saveButton" class="btn btn-primary">
               <span class="save-warn-mark" aria-hidden="true">！</span>実行待機
             </button>
-            <div class="save-tip" role="tooltip">チケット数量を設定してください</div>
+            <div class="save-tip" role="tooltip">
+              チケット数量を設定してください
+            </div>
           </div>
         </div>
 
@@ -739,7 +823,9 @@
             <div id="countdownNum" class="cd-num">--:--:--</div>
             <div class="cd-meta">
               <div class="cd-meta-label">カウントダウン</div>
-              <div id="countdownMsg" class="cd-meta-msg">カウントダウン未開始</div>
+              <div id="countdownMsg" class="cd-meta-msg">
+                カウントダウン未開始
+              </div>
             </div>
           </div>
         </div>
@@ -756,15 +842,17 @@
           <thead>
             <tr>
               <th>券種名</th>
-              <th style="width:110px">数量</th>
-              <th style="width:60px"></th>
+              <th style="width: 110px">数量</th>
+              <th style="width: 60px"></th>
             </tr>
           </thead>
           <tbody id="planRows"></tbody>
         </table>
 
         <div class="table-footer">
-          <button id="addPlanButton" class="btn btn-secondary">＋ 行を追加</button>
+          <button id="addPlanButton" class="btn btn-secondary">
+            ＋ 行を追加
+          </button>
         </div>
       </section>
 
@@ -776,7 +864,6 @@
         </div>
         <div id="statusText" class="status-display">Ready</div>
       </section>
-
     </main>
 
     <script src="../lib/shared.js"></script>
