@@ -18,7 +18,8 @@
     elements: {},
     countdownIntervalId: null,
     countdownRunId: 0,
-    confirmedTargetUrl: ""
+    confirmedTargetUrl: "",
+    eventTitle: ""
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -30,18 +31,21 @@
 
   function bindElements() {
     state.elements = {
-      jobId: document.getElementById("jobId"),
-      targetUrl: document.getElementById("targetUrl"),
-      triggerAt: document.getElementById("triggerAt"),
-      clickIntervalMs: document.getElementById("clickIntervalMs"),
-      parallelTabCount: document.getElementById("parallelTabCount"),
-      requireAgreement: document.getElementById("requireAgreement"),
-      parseFormButton: document.getElementById("parseFormButton"),
-      saveButton: document.getElementById("saveButton"),
-      addPlanButton: document.getElementById("addPlanButton"),
-      planRows: document.getElementById("planRows"),
-      statusText: document.getElementById("statusText"),
-      countdownText: document.getElementById("countdownText")
+      jobId:             document.getElementById("jobId"),
+      targetUrl:         document.getElementById("targetUrl"),
+      triggerAt:         document.getElementById("triggerAt"),
+      clickIntervalMs:   document.getElementById("clickIntervalMs"),
+      parallelTabCount:  document.getElementById("parallelTabCount"),
+      requireAgreement:  document.getElementById("requireAgreement"),
+      parseFormButton:   document.getElementById("parseFormButton"),
+      saveButton:        document.getElementById("saveButton"),
+      addPlanButton:     document.getElementById("addPlanButton"),
+      planRows:          document.getElementById("planRows"),
+      statusText:        document.getElementById("statusText"),
+      countdownNum:      document.getElementById("countdownNum"),
+      countdownMsg:      document.getElementById("countdownMsg"),
+      eventTitleBadge:   document.getElementById("eventTitleBadge"),
+      eventTitleText:    document.getElementById("eventTitleText")
     };
   }
 
@@ -83,7 +87,7 @@
   }
 
   function setDefaultValues() {
-    state.elements.clickIntervalMs.value = String(DEFAULT_JOB.clickIntervalMs);
+    state.elements.clickIntervalMs.value  = String(DEFAULT_JOB.clickIntervalMs);
     state.elements.parallelTabCount.value = String(DEFAULT_JOB.parallelTabCount);
     state.elements.requireAgreement.checked = true;
     state.elements.triggerAt.value = formatLocalDatetimeInput(Date.now() + 10 * 60 * 1000);
@@ -96,15 +100,14 @@
 
   async function loadSavedJob() {
     try {
-      const response = await sendMessage({
-        type: MESSAGE_TYPES.GET_JOB
-      });
+      const response = await sendMessage({ type: MESSAGE_TYPES.GET_JOB });
       if (!response.ok || !response.job) {
         state.confirmedTargetUrl = "";
+        state.eventTitle = "";
         updateConfirmAttention();
         updateStandbyAttention();
         setStatus("保存済みジョブはありません。");
-        setCountdown("カウントダウン未開始");
+        setCountdown("カウントダウン未開始", "--:--:--");
         return;
       }
       populateForm(response.job);
@@ -112,20 +115,25 @@
       startCountdown(response.job, { updateStatus: false });
     } catch (error) {
       setStatus(`ジョブ読み込み失敗: ${error.message}`);
-      setCountdown("カウントダウン未開始");
+      setCountdown("カウントダウン未開始", "--:--:--");
     }
   }
 
   function populateForm(job) {
-    state.elements.jobId.value = String(job.jobId || "");
+    state.elements.jobId.value     = String(job.jobId || "");
     state.elements.targetUrl.value = String(job.targetUrl || "");
-    state.confirmedTargetUrl = normalizeTargetUrlForCompare(state.elements.targetUrl.value);
+    state.confirmedTargetUrl       = normalizeTargetUrlForCompare(state.elements.targetUrl.value);
+    state.eventTitle               = String(job.eventTitle || "");
     updateConfirmAttention();
+    updateEventTitleBadge();
+
     const triggerEpoch = Date.parse(String(job.triggerAtJst || ""));
     if (Number.isFinite(triggerEpoch)) {
       state.elements.triggerAt.value = formatLocalDatetimeInput(triggerEpoch);
     }
-    state.elements.clickIntervalMs.value = String(job.clickIntervalMs ?? DEFAULT_JOB.clickIntervalMs);
+    state.elements.clickIntervalMs.value = String(
+      job.clickIntervalMs ?? DEFAULT_JOB.clickIntervalMs
+    );
     state.elements.parallelTabCount.value = String(
       job.parallelTabCount ?? DEFAULT_JOB.parallelTabCount
     );
@@ -155,7 +163,7 @@
     try {
       const response = await sendMessage({
         type: MESSAGE_TYPES.PARSE_FORM_REQUEST,
-        url: targetUrl
+        url:  targetUrl
       });
 
       if (!response.ok) {
@@ -169,6 +177,10 @@
         setStatus("フォームは検出しましたが券種を抽出できませんでした。");
         return;
       }
+
+      // Save event title from parsed page
+      state.eventTitle = String(parseResult.eventTitle || "").trim();
+      updateEventTitleBadge();
 
       state.elements.planRows.innerHTML = "";
       for (const ticket of tickets) {
@@ -205,36 +217,29 @@
     }
 
     const job = {
-      jobId: state.elements.jobId.value || createId("job"),
+      jobId:            state.elements.jobId.value || createId("job"),
       targetUrl,
       triggerAtJst,
-      clickIntervalMs: clampInt(state.elements.clickIntervalMs.value, DEFAULT_JOB.clickIntervalMs, 5, 500),
-      parallelTabCount: clampInt(
-        state.elements.parallelTabCount.value,
-        DEFAULT_JOB.parallelTabCount,
-        1,
-        5
-      ),
+      eventTitle:       state.eventTitle || "",
+      clickIntervalMs:  clampInt(state.elements.clickIntervalMs.value,  DEFAULT_JOB.clickIntervalMs,  5, 500),
+      parallelTabCount: clampInt(state.elements.parallelTabCount.value, DEFAULT_JOB.parallelTabCount, 1, 5),
       requireAgreement: state.elements.requireAgreement.checked,
       ticketPlans
     };
 
     setStatus("実行待機を登録中...");
     try {
-      const response = await sendMessage({
-        type: MESSAGE_TYPES.SAVE_JOB,
-        job
-      });
+      const response = await sendMessage({ type: MESSAGE_TYPES.SAVE_JOB, job });
       if (!response.ok) {
         setStatus(`実行待機登録失敗: ${response.error || "unknown error"}`);
-        setCountdown("カウントダウン開始失敗");
+        setCountdown("カウントダウン開始失敗", "--:--:--");
         return;
       }
       state.elements.jobId.value = response.job.jobId;
       startCountdown(response.job, { updateStatus: true });
     } catch (error) {
       setStatus(`実行待機登録失敗: ${error.message}`);
-      setCountdown("カウントダウン開始失敗");
+      setCountdown("カウントダウン開始失敗", "--:--:--");
     }
   }
 
@@ -242,18 +247,18 @@
     clearCountdownInterval();
     state.countdownRunId += 1;
     const runId = state.countdownRunId;
-    const opts = options || {};
+    const opts  = options || {};
 
-    const targetUrl = ensureEscapeUrl(job && job.targetUrl);
+    const targetUrl    = ensureEscapeUrl(job && job.targetUrl);
     const triggerEpoch = Date.parse(String((job && job.triggerAtJst) || ""));
     if (!targetUrl || !Number.isFinite(triggerEpoch)) {
-      setCountdown("カウントダウン未開始");
+      setCountdown("カウントダウン未開始", "--:--:--");
       return;
     }
 
     const remainingMs = triggerEpoch - Date.now();
     if (remainingMs <= 0) {
-      setCountdown("実行時刻を過ぎています。時刻を再設定して保存してください。");
+      setCountdown("実行時刻を過ぎています。時刻を再設定して保存してください。", "00:00:00");
       return;
     }
 
@@ -275,7 +280,7 @@
           return;
         }
         clearCountdownInterval();
-        setCountdown("00:00:00 遷移中...");
+        setCountdown("遷移中...", "00:00:00");
         globalScope.location.assign(targetUrl);
       })
       .catch((error) => {
@@ -283,20 +288,20 @@
           return;
         }
         clearCountdownInterval();
-        setCountdown(`カウントダウン異常: ${error.message || "unknown error"}`);
+        setCountdown(`カウントダウン異常: ${error.message || "unknown error"}`, "ERR");
       });
   }
 
   function renderCountdown(triggerEpoch) {
-    const remainingMs = Math.max(0, triggerEpoch - Date.now());
+    const remainingMs  = Math.max(0, triggerEpoch - Date.now());
     const totalSeconds = Math.ceil(remainingMs / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
+    const hours   = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    const hh = String(hours).padStart(2, "0");
-    const mm = String(minutes).padStart(2, "0");
-    const ss = String(seconds).padStart(2, "0");
-    setCountdown(`${hh}:${mm}:${ss} で遷移`);
+    const pad = (n) => String(n).padStart(2, "0");
+    const numStr = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    const msgStr = "で遷移します";
+    setCountdown(msgStr, numStr);
   }
 
   async function waitForTriggerEpoch(triggerEpoch, isCanceled) {
@@ -343,13 +348,10 @@
     return rows
       .map((row) => {
         const labelInput = row.querySelector("input[data-field='label']");
-        const qtyInput = row.querySelector("input[data-field='qty']");
+        const qtyInput   = row.querySelector("input[data-field='qty']");
         const ticketLabel = labelInput ? String(labelInput.value || "").trim() : "";
-        const targetQty = qtyInput ? clampInt(qtyInput.value, 0, 0, 99) : 0;
-        return {
-          ticketLabel,
-          targetQty
-        };
+        const targetQty   = qtyInput   ? clampInt(qtyInput.value, 0, 0, 99)   : 0;
+        return { ticketLabel, targetQty };
       })
       .filter((plan) => plan.ticketLabel);
   }
@@ -357,14 +359,14 @@
   function addPlanRow(label, qty) {
     const row = document.createElement("tr");
     row.innerHTML = [
-      "<td><input data-field='label' type='text' /></td>",
+      "<td><input data-field='label' type='text' placeholder='券種名' /></td>",
       "<td><input data-field='qty' type='number' min='0' max='99' /></td>",
-      "<td><button data-action='remove-plan' type='button'>削除</button></td>"
+      "<td><button data-action='remove-plan' class='btn-remove' type='button'>削除</button></td>"
     ].join("");
     const labelInput = row.querySelector("input[data-field='label']");
-    const qtyInput = row.querySelector("input[data-field='qty']");
+    const qtyInput   = row.querySelector("input[data-field='qty']");
     labelInput.value = String(label || "");
-    qtyInput.value = String(Number.isFinite(Number(qty)) ? Number(qty) : 0);
+    qtyInput.value   = String(Number.isFinite(Number(qty)) ? Number(qty) : 0);
     state.elements.planRows.appendChild(row);
   }
 
@@ -372,8 +374,27 @@
     state.elements.statusText.textContent = String(text || "");
   }
 
-  function setCountdown(text) {
-    state.elements.countdownText.textContent = String(text || "");
+  function setCountdown(msg, numStr) {
+    if (state.elements.countdownMsg) {
+      state.elements.countdownMsg.textContent = String(msg || "");
+    }
+    if (state.elements.countdownNum && numStr !== undefined) {
+      state.elements.countdownNum.textContent = String(numStr);
+    }
+  }
+
+  function updateEventTitleBadge() {
+    const badge = state.elements.eventTitleBadge;
+    const text  = state.elements.eventTitleText;
+    if (!badge || !text) {
+      return;
+    }
+    if (state.eventTitle) {
+      text.textContent = state.eventTitle;
+      badge.classList.add("visible");
+    } else {
+      badge.classList.remove("visible");
+    }
   }
 
   function normalizeTargetUrlForCompare(value) {
@@ -392,7 +413,9 @@
   }
 
   function updateStandbyAttention() {
-    const qtyInputs = Array.from(state.elements.planRows.querySelectorAll("input[data-field='qty']"));
+    const qtyInputs = Array.from(
+      state.elements.planRows.querySelectorAll("input[data-field='qty']")
+    );
     const allZero =
       qtyInputs.length > 0 &&
       qtyInputs.every((input) => {
@@ -400,7 +423,7 @@
         return !Number.isFinite(qty) || qty <= 0;
       });
 
-    state.elements.saveButton.classList.toggle("attention-ticket", allZero);
+    state.elements.saveButton.classList.toggle("attention-standby", allZero);
     state.elements.saveButton.title = allZero ? "数量がすべて0です。数量を見直してください。" : "";
   }
 

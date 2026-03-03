@@ -61,13 +61,17 @@
     const requiredCheckboxes = form.querySelectorAll("input[type='checkbox'][required]").length;
     const allCheckboxes = form.querySelectorAll("input[type='checkbox']").length;
 
+    const h1El = document.querySelector("h1");
+    const eventTitle = h1El ? String(h1El.textContent || "").trim() : "";
+
     return {
       formFound: true,
       tickets,
       agreement: {
         requiredCount: requiredCheckboxes,
         totalCount: allCheckboxes
-      }
+      },
+      eventTitle
     };
   }
 

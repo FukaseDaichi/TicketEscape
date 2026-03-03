@@ -3,389 +3,780 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TicketEscape Options</title>
+    <title>TicketEscape 設定</title>
     <style>
+      /* ── Design System ─────────────────────────────────────────
+         Base:   #edf0f7  (cool light gray)
+         Main:   #141a2e  (deep navy)
+         Accent: #6c63ff  (vivid indigo-purple)
+      ─────────────────────────────────────────────────────────── */
       :root {
         color-scheme: light;
-        --base-color: #f1f6f3;
-        --base-color-deep: #e6efe9;
-        --surface-color: #ffffff;
-        --surface-muted: #f6faf7;
-        --text-color: #152019;
-        --muted-color: #546359;
-        --border-color: #ccdad1;
-        --accent-color: #1f9d72;
-        --accent-color-strong: #187a59;
-        --accent-glow: rgba(31, 157, 114, 0.45);
-        font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+
+        --bg:          #edf0f7;
+        --surface:     #ffffff;
+        --surface-sub: #f5f7fc;
+        --border:      #dde2ef;
+        --border-str:  #bdc5d8;
+
+        --tx:    #141a2e;
+        --tx-b:  #3c4766;
+        --tx-m:  #7d89a2;
+
+        --ac:    #6c63ff;
+        --ac-h:  #5a52e8;
+        --ac-s:  rgba(108, 99, 255, 0.09);
+        --ac-tx: #4f48d9;
+        --ac-glow: rgba(108, 99, 255, 0.40);
+
+        --green:   #0bb870;
+        --green-s: rgba(11, 184, 112, 0.11);
+        --amber:   #f0a500;
+        --amber-s: rgba(240, 165, 0, 0.11);
+        --red:     #e53535;
+        --red-s:   rgba(229, 53, 53, 0.11);
+        --blue:    #3b82f6;
+        --blue-s:  rgba(59, 130, 246, 0.11);
+
+        --r1: 6px;
+        --r2: 10px;
+        --r3: 14px;
+        --r4: 20px;
+
+        --sh1: 0 1px 3px rgba(20, 26, 46, .06), 0 1px 2px rgba(20, 26, 46, .04);
+        --sh2: 0 4px 14px rgba(20, 26, 46, .08), 0 2px 4px rgba(20, 26, 46, .04);
+        --sh3: 0 10px 30px rgba(20, 26, 46, .10), 0 4px 8px rgba(20, 26, 46, .04);
+
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+                "Hiragino Sans", "Yu Gothic UI", sans-serif;
+        --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
       }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
       body {
-        margin: 0;
         min-height: 100vh;
-        padding: 28px 16px 56px;
+        padding: 32px 16px 64px;
+        background:
+          radial-gradient(ellipse at 20% 0%, rgba(108,99,255,.06) 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 100%, rgba(11,184,112,.05) 0%, transparent 45%),
+          var(--bg);
+        color: var(--tx);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.6;
         display: flex;
         justify-content: center;
-        background:
-          radial-gradient(circle at 10% 10%, #f9fffc 0%, transparent 40%),
-          radial-gradient(circle at 100% 0%, #edf7f1 0%, transparent 32%),
-          linear-gradient(145deg, var(--base-color), var(--base-color-deep));
-        color: var(--text-color);
       }
-      h1 {
-        margin: 0;
-        font-size: 30px;
-        letter-spacing: 0.02em;
-      }
-      h2 {
-        margin: 0 0 10px;
-        font-size: 20px;
-      }
+
       .page {
-        width: min(980px, 100%);
+        width: min(900px, 100%);
         display: grid;
         gap: 16px;
       }
+
+      /* ── Hero / Header ── */
       .hero {
-        background: var(--surface-color);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 20px 22px;
-        box-shadow: 0 14px 30px rgba(17, 31, 23, 0.08);
-      }
-      .hero p {
-        margin: 8px 0 0;
-        color: var(--muted-color);
-        font-size: 14px;
-      }
-      .card {
-        background: var(--surface-color);
-        border: 1px solid var(--border-color);
-        border-radius: 14px;
-        padding: 18px;
-        box-shadow: 0 10px 28px rgba(28, 46, 36, 0.07);
-      }
-      .row {
-        display: grid;
-        grid-template-columns: 210px minmax(0, 1fr);
-        gap: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r4);
+        padding: 22px 28px;
+        box-shadow: var(--sh3);
+        display: flex;
         align-items: center;
-        margin-bottom: 12px;
+        gap: 16px;
       }
-      label {
+
+      .hero-logo {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, var(--ac) 0%, #a78bfa 100%);
+        border-radius: var(--r3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        box-shadow: 0 4px 16px rgba(108, 99, 255, .30);
+        flex-shrink: 0;
+      }
+
+      .hero-text {}
+
+      .hero-title {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--tx);
+        line-height: 1.1;
+      }
+
+      .hero-sub {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--tx-m);
+      }
+
+      /* ── Cards ── */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r4);
+        padding: 22px 26px;
+        box-shadow: var(--sh2);
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .card-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--r2);
+        background: var(--ac-s);
+        border: 1px solid rgba(108, 99, 255, .15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+
+      .card-title {
+        font-size: 16px;
         font-weight: 700;
-        letter-spacing: 0.02em;
+        letter-spacing: -0.01em;
+        color: var(--tx);
       }
+
+      .card-note {
+        margin-bottom: 16px;
+        font-size: 12px;
+        color: var(--tx-m);
+        background: var(--surface-sub);
+        border: 1px solid var(--border);
+        border-radius: var(--r2);
+        padding: 8px 12px;
+      }
+
+      /* Guide steps */
+      .guide-steps {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+      }
+
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px 5px 6px;
+        background: var(--surface-sub);
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        font-size: 12px;
+        color: var(--tx-b);
+      }
+
+      .step-num {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--ac);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      /* Form rows */
+      .field {
+        display: grid;
+        grid-template-columns: 200px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 16px;
+      }
+
+      .field:last-of-type {
+        margin-bottom: 0;
+      }
+
+      .field-label {
+        padding-top: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--tx-b);
+        letter-spacing: 0.01em;
+      }
+
+      .field-body {
+        display: grid;
+        gap: 4px;
+      }
+
+      .field-help {
+        font-size: 11px;
+        color: var(--tx-m);
+      }
+
+      /* Event title badge (shown after confirm) */
+      .ev-badge {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        background: var(--green-s);
+        border: 1px solid rgba(11, 184, 112, .20);
+        border-radius: var(--r1);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--green);
+      }
+      .ev-badge.visible {
+        display: flex;
+      }
+
+      /* Inputs */
       input[type="text"],
       input[type="number"],
       input[type="datetime-local"] {
         width: 100%;
-        box-sizing: border-box;
-        padding: 10px 11px;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        background: var(--surface-muted);
-        color: var(--text-color);
-        transition: border-color 120ms ease, box-shadow 120ms ease,
-          background-color 120ms ease;
-      }
-      input:focus-visible {
-        outline: none;
-        border-color: var(--accent-color);
-        box-shadow: 0 0 0 4px rgba(31, 157, 114, 0.15);
-        background: #ffffff;
-      }
-      .button-row {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .action-buttons {
-        justify-content: center;
-        margin-top: 2px;
-      }
-      .action-buttons button {
-        min-width: 160px;
-        font-size: 15px;
-        padding: 11px 18px;
-      }
-      .center-button-row {
-        justify-content: center;
-      }
-      button {
-        border: 1px solid #244634;
-        border-radius: 8px;
-        background: #ffffff;
-        padding: 9px 14px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: transform 120ms ease, border-color 120ms ease,
-          box-shadow 120ms ease, background-color 120ms ease, color 120ms ease;
-      }
-      button:hover {
-        transform: translateY(-1px);
-        border-color: var(--accent-color);
-      }
-      button:active {
-        transform: translateY(0);
-      }
-      button:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 4px rgba(31, 157, 114, 0.22);
-      }
-      button.primary {
-        background: var(--accent-color);
-        border-color: var(--accent-color);
-        color: #fff;
-      }
-      button.primary:hover {
-        border-color: var(--accent-color-strong);
-        background: var(--accent-color-strong);
-      }
-      button.confirm-button {
-        border-color: var(--accent-color-strong);
-        color: var(--accent-color-strong);
-      }
-      button.confirm-button.attention {
-        animation: confirmPulse 1s ease-in-out infinite;
-      }
-      button.primary.attention-ticket {
-        animation: standbyPulse 0.95s ease-in-out infinite;
-      }
-      .plan-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: var(--surface-muted);
-        border-radius: 10px;
-        overflow: hidden;
-      }
-      .plan-table th,
-      .plan-table td {
-        border-bottom: 1px solid #dfebe4;
-        padding: 8px 4px;
-        text-align: left;
-      }
-      .plan-table input {
-        width: 100%;
-      }
-      .status {
+        padding: 10px 12px;
+        background: var(--surface-sub);
+        border: 1px solid var(--border);
+        border-radius: var(--r2);
+        color: var(--tx);
+        font-family: var(--font);
         font-size: 13px;
-        white-space: pre-wrap;
-        background: var(--surface-muted);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 10px;
+        transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
       }
-      .countdown {
-        font-size: 15px;
-        font-weight: 700;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+      input:focus {
+        border-color: var(--ac);
+        box-shadow: 0 0 0 3px rgba(108, 99, 255, .14);
+        background: var(--surface);
       }
-      .action-feedback {
-        margin-top: 12px;
-        display: grid;
-        gap: 8px;
-      }
-      .action-feedback .countdown {
-        margin-top: 0;
-      }
-      .guide {
-        margin: 0 0 14px;
-        padding-left: 18px;
-        font-size: 14px;
-      }
-      .guide li {
-        margin-bottom: 6px;
-      }
-      .note {
-        margin: 0 0 10px;
-        font-size: 12px;
-        color: var(--muted-color);
-      }
-      .input-with-help {
-        display: grid;
-        gap: 4px;
-      }
-      .field-help {
-        font-size: 12px;
-        color: var(--muted-color);
-      }
-      details.advanced {
-        margin-top: 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 10px;
-        background: var(--surface-muted);
-      }
-      details.advanced summary {
+
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--ac);
         cursor: pointer;
-        font-weight: 700;
+        flex-shrink: 0;
       }
-      .checkbox-wrap {
+
+      .checkbox-row {
         display: flex;
         align-items: center;
         gap: 8px;
+        padding-top: 10px;
       }
 
-      @keyframes confirmPulse {
-        0% {
-          background: #ffffff;
-          color: var(--accent-color-strong);
-          box-shadow: 0 0 0 0 var(--accent-glow);
-        }
-        45% {
-          background: var(--accent-color);
-          color: #ffffff;
-          box-shadow: 0 0 0 8px rgba(31, 157, 114, 0);
-        }
-        100% {
-          background: #ffffff;
-          color: var(--accent-color-strong);
-          box-shadow: 0 0 0 0 rgba(31, 157, 114, 0);
-        }
+      .checkbox-row label {
+        font-size: 13px;
+        color: var(--tx-b);
+        cursor: pointer;
       }
 
-      @keyframes standbyPulse {
-        0% {
-          background: var(--accent-color);
-          border-color: var(--accent-color);
-          box-shadow: 0 0 0 0 rgba(31, 157, 114, 0.4);
+      /* Advanced details */
+      details.advanced {
+        margin-top: 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--r3);
+        background: var(--surface-sub);
+        overflow: hidden;
+      }
+
+      details.advanced > summary {
+        padding: 13px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--tx-b);
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        user-select: none;
+        transition: background 120ms;
+      }
+
+      details.advanced > summary::-webkit-details-marker { display: none; }
+
+      details.advanced > summary::before {
+        content: "▶";
+        font-size: 9px;
+        color: var(--tx-m);
+        transition: transform 180ms ease;
+        display: inline-block;
+      }
+
+      details.advanced[open] > summary::before {
+        transform: rotate(90deg);
+      }
+
+      details.advanced > summary:hover {
+        background: rgba(108, 99, 255, .04);
+      }
+
+      .advanced-inner {
+        padding: 16px 16px 18px;
+        border-top: 1px solid var(--border);
+        display: grid;
+        gap: 14px;
+      }
+
+      /* ── Buttons ── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 18px;
+        border-radius: var(--r2);
+        font-family: var(--font);
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 120ms ease, border-color 120ms ease,
+          transform 80ms ease, box-shadow 120ms ease, color 120ms ease;
+        border: 1px solid transparent;
+        outline: none;
+        white-space: nowrap;
+      }
+
+      .btn:focus-visible {
+        box-shadow: 0 0 0 3px rgba(108, 99, 255, .25);
+      }
+
+      .btn:active {
+        transform: translateY(0) !important;
+      }
+
+      .btn-secondary {
+        background: var(--surface);
+        border-color: var(--border-str);
+        color: var(--tx-b);
+      }
+      .btn-secondary:hover {
+        border-color: var(--ac);
+        color: var(--ac-tx);
+        transform: translateY(-1px);
+        background: var(--ac-s);
+      }
+
+      .btn-confirm {
+        background: var(--surface);
+        border-color: var(--ac);
+        color: var(--ac-tx);
+        min-width: 120px;
+      }
+      .btn-confirm:hover {
+        background: var(--ac-s);
+        transform: translateY(-1px);
+      }
+
+      .btn-primary {
+        background: var(--ac);
+        border-color: var(--ac);
+        color: #fff;
+        min-width: 160px;
+        box-shadow: 0 2px 10px rgba(108, 99, 255, .28);
+      }
+      .btn-primary:hover {
+        background: var(--ac-h);
+        border-color: var(--ac-h);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(108, 99, 255, .36);
+      }
+
+      /* Attention states */
+      .btn-confirm.attention {
+        animation: confirm-pulse 1.1s ease-in-out infinite;
+      }
+
+      .btn-primary.attention-standby {
+        animation: standby-pulse 1.0s ease-in-out infinite;
+      }
+
+      @keyframes confirm-pulse {
+        0%, 100% {
+          background: var(--surface);
+          color: var(--ac-tx);
+          box-shadow: 0 0 0 0 var(--ac-glow);
         }
         50% {
-          background: #ea6d3f;
-          border-color: #ea6d3f;
-          box-shadow: 0 0 0 8px rgba(234, 109, 63, 0);
-        }
-        100% {
-          background: var(--accent-color);
-          border-color: var(--accent-color);
-          box-shadow: 0 0 0 0 rgba(31, 157, 114, 0);
+          background: var(--ac);
+          color: #fff;
+          box-shadow: 0 0 0 7px rgba(108, 99, 255, 0);
         }
       }
 
-      @media (max-width: 760px) {
-        body {
-          padding: 20px 10px 30px;
+      @keyframes standby-pulse {
+        0%, 100% {
+          background: var(--ac);
+          border-color: var(--ac);
+          box-shadow: 0 0 0 0 rgba(240, 165, 0, .40);
         }
-        h1 {
-          font-size: 25px;
+        50% {
+          background: var(--amber);
+          border-color: var(--amber);
+          box-shadow: 0 0 0 7px rgba(240, 165, 0, 0);
         }
-        .card,
-        .hero {
-          padding: 15px;
-        }
-        .row {
-          grid-template-columns: 1fr;
-          gap: 6px;
-        }
+      }
+
+      /* Action button row */
+      .action-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 22px;
+        flex-wrap: wrap;
+      }
+
+      /* Save button wrapper + tooltip */
+      .save-btn-wrap {
+        position: relative;
+      }
+
+      /* ! icon inside button — hidden by default */
+      .save-warn-mark {
+        display: none;
+        font-weight: 900;
+        margin-right: 5px;
+        font-size: 14px;
+        line-height: 1;
+      }
+
+      .btn-primary.attention-standby .save-warn-mark {
+        display: inline;
+      }
+
+      /* Tooltip bubble */
+      .save-tip {
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(4px);
+        background: var(--tx);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 500;
+        padding: 7px 13px;
+        border-radius: var(--r2);
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 150ms ease, transform 150ms ease;
+        z-index: 10;
+      }
+
+      /* Arrow */
+      .save-tip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: var(--tx);
+      }
+
+      /* Show tooltip only when button is in attention state AND focused/hovered */
+      .save-btn-wrap:has(.attention-standby:hover) .save-tip,
+      .save-btn-wrap:has(.attention-standby:focus-visible) .save-tip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* ── Countdown / Feedback ── */
+      .feedback-area {
+        margin-top: 14px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .cd-display {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        background: var(--surface-sub);
+        border: 1px solid var(--border);
+        border-radius: var(--r3);
+      }
+
+      .cd-num {
+        font-family: var(--mono);
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        font-variant-numeric: tabular-nums;
+        color: var(--ac);
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .cd-num.col-standby { color: var(--blue); }
+
+      .cd-meta {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .cd-meta-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--tx-m);
+        margin-bottom: 2px;
+      }
+
+      .cd-meta-msg {
+        font-size: 12px;
+        color: var(--tx-b);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Status card ── */
+      .status-display {
+        font-size: 12px;
+        color: var(--tx-b);
+        background: var(--surface-sub);
+        border: 1px solid var(--border);
+        border-radius: var(--r2);
+        padding: 10px 14px;
+        white-space: pre-wrap;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Ticket table ── */
+      .ticket-table {
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: var(--r2);
+        overflow: hidden;
+      }
+
+      .ticket-table th {
+        padding: 8px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--tx-m);
+        background: var(--surface-sub);
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+      }
+
+      .ticket-table td {
+        padding: 8px 6px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+
+      .ticket-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .ticket-table tbody tr:hover {
+        background: rgba(108, 99, 255, .025);
+      }
+
+      .ticket-table input[type="text"],
+      .ticket-table input[type="number"] {
+        padding: 7px 9px;
+        font-size: 13px;
+      }
+
+      .ticket-table td:last-child {
+        width: 60px;
+        text-align: center;
+      }
+
+      .btn-remove {
+        padding: 4px 10px;
+        background: transparent;
+        border: 1px solid var(--border-str);
+        border-radius: var(--r1);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--tx-m);
+        cursor: pointer;
+        transition: background 120ms, border-color 120ms, color 120ms;
+        font-family: var(--font);
+      }
+
+      .btn-remove:hover {
+        background: var(--red-s);
+        border-color: var(--red);
+        color: var(--red);
+      }
+
+      .table-footer {
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+      }
+
+      @media (max-width: 720px) {
+        body { padding: 16px 10px 40px; }
+        .hero { padding: 16px 18px; flex-direction: column; align-items: flex-start; gap: 10px; }
+        .card { padding: 16px 16px; }
+        .field { grid-template-columns: 1fr; gap: 6px; }
+        .field-label { padding-top: 0; }
+        .guide-steps { gap: 6px; }
+        .step { font-size: 11px; }
       }
     </style>
   </head>
   <body>
     <main class="page">
+
+      <!-- Hero -->
       <section class="hero">
-        <h1>TicketEscape 設定</h1>
-        <p>
-          URLと時刻を先に設定して「確認」し、券種を取得してから実行待機してください。
-        </p>
+        <div class="hero-logo">🎫</div>
+        <div class="hero-text">
+          <div class="hero-title">TicketEscape 設定</div>
+          <div class="hero-sub">URLと時刻を設定 → 「確認」で券種取得 → 「実行待機」で完了</div>
+        </div>
       </section>
 
+      <!-- Basic Settings -->
       <section class="card">
-        <h2>基本設定</h2>
-        <p class="note">
-          まずは下の2項目だけ入力してください。詳細設定は通常変更不要です。
-        </p>
-        <ol class="guide">
-          <li>対象URLを入力</li>
-          <li>実行時刻（JST）を入力</li>
-          <li>「確認」で券種を取り込む</li>
-          <li>数量を設定して「実行待機」</li>
-          <li>実行待機後はこの設定画面を開いたまま待機（0秒で自動遷移）</li>
-        </ol>
-        <div class="row">
-          <label for="targetUrl">対象URL</label>
-          <div class="input-with-help">
-            <input
-              id="targetUrl"
-              type="text"
-              placeholder="https://escape.id/..."
-            />
-            <div class="field-help">購入ページURLをそのまま貼り付けます。</div>
+        <div class="card-header">
+          <div class="card-icon">⚙️</div>
+          <div class="card-title">基本設定</div>
+        </div>
+
+        <div class="guide-steps">
+          <div class="step"><span class="step-num">1</span>対象URLを入力</div>
+          <div class="step"><span class="step-num">2</span>実行時刻（JST）を入力</div>
+          <div class="step"><span class="step-num">3</span>「確認」で券種取得</div>
+          <div class="step"><span class="step-num">4</span>数量を設定して「実行待機」</div>
+          <div class="step"><span class="step-num">5</span>設定画面を開いたまま待機</div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">対象URL</div>
+          <div class="field-body">
+            <input id="targetUrl" type="text" placeholder="https://escape.id/..." />
+            <div class="field-help">購入ページのURLをそのまま貼り付けます。</div>
+            <div id="eventTitleBadge" class="ev-badge">
+              <span>🎪</span>
+              <span id="eventTitleText"></span>
+            </div>
           </div>
         </div>
-        <div class="row">
-          <label for="triggerAt">実行時刻 (JST)</label>
-          <div class="input-with-help">
+
+        <div class="field">
+          <div class="field-label">実行時刻 (JST)</div>
+          <div class="field-body">
             <input id="triggerAt" type="datetime-local" step="1" />
-            <div class="field-help">チケット発売時刻をJSTで設定します。</div>
+            <div class="field-help">チケット発売時刻をJSTで入力します。</div>
           </div>
         </div>
 
         <details class="advanced">
           <summary>詳細設定（通常は変更不要）</summary>
-          <p class="note">
-            次の項目は初期値のままで動作します。必要な場合のみ変更してください。
-          </p>
-          <div class="row">
-            <label for="clickIntervalMs">クリック間隔(ms)</label>
-            <div class="input-with-help">
-              <input id="clickIntervalMs" type="number" min="5" max="500" />
-              <div class="field-help">ボタン連打時の間隔。初期値: 30</div>
+          <div class="advanced-inner">
+            <div class="field" style="margin-bottom:0">
+              <div class="field-label">クリック間隔 (ms)</div>
+              <div class="field-body">
+                <input id="clickIntervalMs" type="number" min="5" max="500" style="max-width:160px" />
+                <div class="field-help">ボタン連打の間隔。初期値: 30 ms</div>
+              </div>
             </div>
-          </div>
-          <div class="row">
-            <label for="parallelTabCount">並列実行数</label>
-            <div class="input-with-help">
-              <input id="parallelTabCount" type="number" min="1" max="5" />
-              <div class="field-help">同時に実行するタブ数。初期値: 1（最大: 5）</div>
+            <div class="field" style="margin-bottom:0">
+              <div class="field-label">並列実行数</div>
+              <div class="field-body">
+                <input id="parallelTabCount" type="number" min="1" max="5" style="max-width:100px" />
+                <div class="field-help">同時に実行するタブ数。初期値: 1（最大: 5）</div>
+              </div>
             </div>
-          </div>
-          <div class="row">
-            <label for="requireAgreement"
-              >フォーム内チェックボックスをすべてON</label
-            >
-            <div class="checkbox-wrap">
-              <input id="requireAgreement" type="checkbox" checked />
-              <span class="field-help"
-                >form内のチェックボックスをすべて自動チェックします（初期値:
-                ON）。</span
-              >
+            <div class="field" style="margin-bottom:0">
+              <div class="field-label">チェックボックス自動ON</div>
+              <div class="field-body">
+                <div class="checkbox-row">
+                  <input id="requireAgreement" type="checkbox" checked />
+                  <label for="requireAgreement">フォーム内のチェックボックスをすべて自動チェック（初期値: ON）</label>
+                </div>
+              </div>
             </div>
           </div>
         </details>
 
         <input id="jobId" type="hidden" />
-        <div class="button-row action-buttons">
-          <button id="parseFormButton" class="confirm-button">確認</button>
-          <button id="saveButton" class="primary">実行待機</button>
+
+        <div class="action-row">
+          <button id="parseFormButton" class="btn btn-confirm">確認</button>
+          <div class="save-btn-wrap">
+            <button id="saveButton" class="btn btn-primary">
+              <span class="save-warn-mark" aria-hidden="true">！</span>実行待機
+            </button>
+            <div class="save-tip" role="tooltip">チケット数量を設定してください</div>
+          </div>
         </div>
-        <div class="action-feedback">
-          <div id="countdownText" class="status countdown">
-            カウントダウン未開始
+
+        <div class="feedback-area">
+          <div class="cd-display">
+            <div id="countdownNum" class="cd-num">--:--:--</div>
+            <div class="cd-meta">
+              <div class="cd-meta-label">カウントダウン</div>
+              <div id="countdownMsg" class="cd-meta-msg">カウントダウン未開始</div>
+            </div>
           </div>
         </div>
       </section>
 
+      <!-- Ticket Quantity -->
       <section class="card">
-        <h2>チケット数量設定</h2>
-        <table class="plan-table">
+        <div class="card-header">
+          <div class="card-icon">🎟</div>
+          <div class="card-title">チケット数量設定</div>
+        </div>
+
+        <table class="ticket-table">
           <thead>
             <tr>
               <th>券種名</th>
-              <th>数量</th>
-              <th>操作</th>
+              <th style="width:110px">数量</th>
+              <th style="width:60px"></th>
             </tr>
           </thead>
           <tbody id="planRows"></tbody>
         </table>
-        <div class="button-row center-button-row" style="margin-top: 8px">
-          <button id="addPlanButton">行を追加</button>
+
+        <div class="table-footer">
+          <button id="addPlanButton" class="btn btn-secondary">＋ 行を追加</button>
         </div>
       </section>
 
+      <!-- Status -->
       <section class="card">
-        <h2>ステータス</h2>
-        <div id="statusText" class="status">Ready</div>
+        <div class="card-header">
+          <div class="card-icon">📊</div>
+          <div class="card-title">ステータス</div>
+        </div>
+        <div id="statusText" class="status-display">Ready</div>
       </section>
+
     </main>
 
     <script src="../lib/shared.js"></script>

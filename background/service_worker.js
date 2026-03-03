@@ -241,6 +241,7 @@ importScripts("../lib/shared.js");
       jobId: String(input.jobId || createId("job")),
       targetUrl,
       triggerAtJst: input.triggerAtJst,
+      eventTitle: String(input.eventTitle || "").trim().slice(0, 200),
       clickIntervalMs: clampInt(input.clickIntervalMs, DEFAULT_JOB.clickIntervalMs, 5, 500),
       parallelTabCount: clampInt(input.parallelTabCount, DEFAULT_JOB.parallelTabCount, 1, 5),
       requireAgreement: input.requireAgreement !== false,
