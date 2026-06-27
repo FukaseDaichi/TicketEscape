@@ -4,865 +4,584 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TicketEscape 設定</title>
+    <link rel="stylesheet" href="../styles/tokens.css" />
     <style>
-      /* ── Design System ─────────────────────────────────────────
-         Base:   #edf0f7  (cool light gray)
-         Main:   #141a2e  (deep navy)
-         Accent: #6c63ff  (vivid indigo-purple)
-      ─────────────────────────────────────────────────────────── */
-      :root {
-        color-scheme: light;
+      /* TicketEscape Design System「CONSOLE（管制盤）」 — options（縦型ガイド）
+         トークンは ../styles/tokens.css。色＝計器の信号。ダーク固定。 */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        --bg: #edf0f7;
-        --surface: #ffffff;
-        --surface-sub: #f5f7fc;
-        --border: #dde2ef;
-        --border-str: #bdc5d8;
-
-        --tx: #141a2e;
-        --tx-b: #3c4766;
-        --tx-m: #7d89a2;
-
-        --ac: #6c63ff;
-        --ac-h: #5a52e8;
-        --ac-s: rgba(108, 99, 255, 0.09);
-        --ac-tx: #4f48d9;
-        --ac-glow: rgba(108, 99, 255, 0.4);
-
-        --green: #0bb870;
-        --green-s: rgba(11, 184, 112, 0.11);
-        --amber: #f0a500;
-        --amber-s: rgba(240, 165, 0, 0.11);
-        --red: #e53535;
-        --red-s: rgba(229, 53, 53, 0.11);
-        --blue: #3b82f6;
-        --blue-s: rgba(59, 130, 246, 0.11);
-
-        --r1: 6px;
-        --r2: 10px;
-        --r3: 14px;
-        --r4: 20px;
-
-        --sh1:
-          0 1px 3px rgba(20, 26, 46, 0.06), 0 1px 2px rgba(20, 26, 46, 0.04);
-        --sh2:
-          0 4px 14px rgba(20, 26, 46, 0.08), 0 2px 4px rgba(20, 26, 46, 0.04);
-        --sh3:
-          0 10px 30px rgba(20, 26, 46, 0.1), 0 4px 8px rgba(20, 26, 46, 0.04);
-
-        --font:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
-          "Hiragino Sans", "Yu Gothic UI", sans-serif;
-        --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
+      html, body { background: var(--te-bg); }
 
       body {
         min-height: 100vh;
-        padding: 32px 16px 64px;
-        background:
-          radial-gradient(
-            ellipse at 20% 0%,
-            rgba(108, 99, 255, 0.06) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            ellipse at 80% 100%,
-            rgba(11, 184, 112, 0.05) 0%,
-            transparent 45%
-          ),
-          var(--bg);
-        color: var(--tx);
-        font-family: var(--font);
+        color: var(--te-text);
+        font-family: var(--te-font);
         font-size: 14px;
         line-height: 1.6;
-        display: flex;
-        justify-content: center;
+        -webkit-font-smoothing: antialiased;
       }
 
-      .page {
-        width: min(900px, 100%);
-        display: grid;
-        gap: 16px;
-      }
-
-      /* ── Hero / Header ── */
-      .hero {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r4);
-        padding: 22px 28px;
-        box-shadow: var(--sh3);
-        display: flex;
-        align-items: center;
-        gap: 16px;
-      }
-
-      .hero-logo {
-        width: 48px;
-        height: 48px;
-        background: linear-gradient(135deg, var(--ac) 0%, #a78bfa 100%);
-        border-radius: var(--r3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 26px;
-        box-shadow: 0 4px 16px rgba(108, 99, 255, 0.3);
-        flex-shrink: 0;
-      }
-
-      .hero-title {
-        font-size: 22px;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        color: var(--tx);
-        line-height: 1.1;
-      }
-
-      .hero-sub {
-        margin-top: 4px;
-        font-size: 13px;
-        color: var(--tx-m);
-      }
-
-      /* ── Cards ── */
-      .card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r4);
-        padding: 22px 26px;
-        box-shadow: var(--sh2);
-      }
-
-      .card-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 20px;
-      }
-
-      .card-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: var(--r2);
-        background: var(--ac-s);
-        border: 1px solid rgba(108, 99, 255, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        flex-shrink: 0;
-      }
-
-      .card-title {
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: -0.01em;
-        color: var(--tx);
-      }
-
-      .card-note {
-        margin-bottom: 16px;
-        font-size: 12px;
-        color: var(--tx-m);
-        background: var(--surface-sub);
-        border: 1px solid var(--border);
-        border-radius: var(--r2);
-        padding: 8px 12px;
-      }
-
-      /* Guide steps */
-      .guide-steps {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 22px;
-        flex-wrap: wrap;
-      }
-
-      .step {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 10px 5px 6px;
-        background: var(--surface-sub);
-        border: 1px solid var(--border);
-        border-radius: 99px;
-        font-size: 12px;
-        color: var(--tx-b);
-      }
-
-      .step-num {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: var(--ac);
-        color: #fff;
-        font-size: 10px;
-        font-weight: 800;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      /* Form rows */
-      .field {
-        display: grid;
-        grid-template-columns: 200px minmax(0, 1fr);
-        gap: 12px;
-        align-items: start;
-        margin-bottom: 16px;
-      }
-
-      .field:last-of-type {
-        margin-bottom: 0;
-      }
-
-      .field-label {
-        padding-top: 10px;
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--tx-b);
-        letter-spacing: 0.01em;
-      }
-
-      .field-body {
-        display: grid;
-        gap: 4px;
-      }
-
-      .field-help {
-        font-size: 11px;
-        color: var(--tx-m);
-      }
-
-      /* Event title badge (shown after confirm) */
-      .ev-badge {
-        display: none;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 10px;
-        background: var(--green-s);
-        border: 1px solid rgba(11, 184, 112, 0.2);
-        border-radius: var(--r1);
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--green);
-      }
-      .ev-badge.visible {
-        display: flex;
-      }
-
-      /* Inputs */
-      input[type="text"],
-      input[type="number"],
-      input[type="datetime-local"] {
-        width: 100%;
-        padding: 10px 12px;
-        background: var(--surface-sub);
-        border: 1px solid var(--border);
-        border-radius: var(--r2);
-        color: var(--tx);
-        font-family: var(--font);
-        font-size: 13px;
-        transition:
-          border-color 120ms ease,
-          box-shadow 120ms ease,
-          background 120ms ease;
-        outline: none;
-        appearance: none;
-        -webkit-appearance: none;
-      }
-
-      input:focus {
-        border-color: var(--ac);
-        box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.14);
-        background: var(--surface);
-      }
-
-      input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
-        accent-color: var(--ac);
-        cursor: pointer;
-        flex-shrink: 0;
-      }
-
-      .checkbox-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding-top: 10px;
-      }
-
-      .checkbox-row label {
-        font-size: 13px;
-        color: var(--tx-b);
-        cursor: pointer;
-      }
-
-      /* Advanced details */
-      details.advanced {
-        margin-top: 18px;
-        border: 1px solid var(--border);
-        border-radius: var(--r3);
-        background: var(--surface-sub);
+      .sr-only {
+        position: absolute;
+        width: 1px; height: 1px;
         overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
       }
 
-      details.advanced > summary {
-        padding: 13px 16px;
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--tx-b);
-        cursor: pointer;
-        list-style: none;
+      .ico    { width: 16px; height: 16px; display: inline-block; flex-shrink: 0; }
+      .ico-sm { width: 13px; height: 13px; }
+
+      /* ── Sticky mission bar ── */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
         display: flex;
         align-items: center;
-        gap: 8px;
-        user-select: none;
-        transition: background 120ms;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 22px;
+        background: var(--te-bg);
+        border-bottom: 1px solid var(--te-line);
+      }
+      .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .brand-mark { display: flex; color: var(--te-text); flex-shrink: 0; }
+      .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+      .brand-sub {
+        font-family: var(--te-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
+        margin-left: 2px;
       }
 
-      details.advanced > summary::-webkit-details-marker {
-        display: none;
-      }
+      .mission { display: flex; align-items: center; gap: 16px; }
 
-      details.advanced > summary::before {
-        content: "▶";
-        font-size: 9px;
-        color: var(--tx-m);
-        transition: transform 180ms ease;
-        display: inline-block;
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: var(--te-r-pill);
+        border: 1px solid transparent;
+        font-family: var(--te-mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
+      .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+      .chip.idle   { color: var(--te-text-mut); background: var(--te-surface-2); border-color: var(--te-line); }
+      .chip.armed  { color: var(--te-signal);    background: var(--te-signal-tint); border-color: var(--te-signal-line); }
+      .chip.tminus { color: var(--te-signal-up); background: var(--te-signal-tint); border-color: var(--te-signal-line); }
+      .chip.armed  .chip-dot { animation: te-pulse 1.4s ease-in-out infinite; }
+      .chip.tminus .chip-dot { animation: te-pulse 0.9s ease-in-out infinite; }
 
-      details.advanced[open] > summary::before {
-        transform: rotate(90deg);
+      .mini-cd { text-align: right; }
+      .mini-cd-eyebrow {
+        font-family: var(--te-mono);
+        font-size: 9.5px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
       }
-
-      details.advanced > summary:hover {
-        background: rgba(108, 99, 255, 0.04);
+      .mini-cd-val {
+        font-family: var(--te-mono);
+        font-size: 26px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        line-height: 1.1;
+        color: var(--te-text-dim);
+        font-variant-numeric: tabular-nums;
+        transition: color var(--te-dur-base) var(--te-ease);
       }
+      .mini-cd-val.armed  { color: var(--te-signal); }
+      .mini-cd-val.tminus { color: var(--te-signal-up); }
 
-      .advanced-inner {
-        padding: 16px 16px 18px;
-        border-top: 1px solid var(--border);
+      /* ── Page ── */
+      .page {
+        width: min(720px, 100%);
+        margin: 0 auto;
+        padding: 24px 22px 72px;
         display: grid;
         gap: 14px;
       }
+
+      .intro {
+        font-size: 13px;
+        color: var(--te-text-mut);
+        padding: 2px 2px 4px;
+      }
+
+      /* ── Step card ── */
+      .step {
+        background: var(--te-surface);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-lg);
+        padding: 18px 20px;
+        transition: border-color var(--te-dur-base) var(--te-ease);
+      }
+      .step.done { border-color: rgba(63, 185, 80, 0.28); }
+
+      .step-head { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+      .step-num {
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--te-mono);
+        font-size: 13px;
+        font-weight: 700;
+        background: var(--te-surface-2);
+        border: 1px solid var(--te-line-strong);
+        color: var(--te-text-mut);
+        flex-shrink: 0;
+        transition: background var(--te-dur-base), color var(--te-dur-base), border-color var(--te-dur-base);
+      }
+      .step.done .step-num {
+        background: var(--te-ok-tint);
+        border-color: var(--te-ok);
+        color: var(--te-ok);
+      }
+      .step-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; flex: 1; min-width: 0; }
+      .step-check { color: var(--te-ok); display: none; }
+      .step.done .step-check { display: inline-block; }
+
+      .step-body { display: grid; gap: 12px; }
+
+      .field-help { font-size: 12px; color: var(--te-text-mut); }
+      .field-help.warn { color: var(--te-signal); }
+
+      /* ── Inputs ── */
+      .te-input {
+        width: 100%;
+        padding: 11px 13px;
+        background: var(--te-surface-2);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-md);
+        color: var(--te-text);
+        font-family: var(--te-mono);
+        font-size: 14px;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        transition: border-color var(--te-dur-fast), box-shadow var(--te-dur-fast), background var(--te-dur-fast);
+      }
+      .te-input::placeholder { color: var(--te-text-dim); }
+      .te-input:focus {
+        border-color: var(--te-signal-line);
+        box-shadow: 0 0 0 3px var(--te-signal-line);
+        background: var(--te-surface);
+      }
+      input[type="datetime-local"].te-input { color-scheme: dark; }
+
+      /* ── Event readout (after confirm) ── */
+      .event-readout {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        background: var(--te-ok-tint);
+        border: 1px solid rgba(63, 185, 80, 0.3);
+        border-radius: var(--te-r-md);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--te-ok);
+      }
+      .event-readout.visible { display: flex; }
+      .event-readout .ico { color: var(--te-ok); }
 
       /* ── Buttons ── */
       .btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        padding: 10px 18px;
-        border-radius: var(--r2);
-        font-family: var(--font);
+        gap: 7px;
+        padding: 11px 18px;
+        border-radius: var(--te-r-md);
+        border: 1px solid transparent;
+        font-family: var(--te-font);
         font-size: 13px;
         font-weight: 700;
         cursor: pointer;
-        transition:
-          background 120ms ease,
-          border-color 120ms ease,
-          transform 80ms ease,
-          box-shadow 120ms ease,
-          color 120ms ease;
-        border: 1px solid transparent;
         outline: none;
         white-space: nowrap;
+        transition: background var(--te-dur-fast), border-color var(--te-dur-fast),
+          transform var(--te-dur-fast), color var(--te-dur-fast);
       }
-
-      .btn:focus-visible {
-        box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.25);
-      }
-
-      .btn:active {
-        transform: translateY(0) !important;
-      }
-
-      .btn-secondary {
-        background: var(--surface);
-        border-color: var(--border-str);
-        color: var(--tx-b);
-      }
-      .btn-secondary:hover {
-        border-color: var(--ac);
-        color: var(--ac-tx);
-        transform: translateY(-1px);
-        background: var(--ac-s);
-      }
+      .btn:focus-visible { box-shadow: 0 0 0 3px var(--te-signal-line); }
+      .btn:active { transform: translateY(0) !important; }
 
       .btn-confirm {
-        background: var(--surface);
-        border-color: var(--ac);
-        color: var(--ac-tx);
-        min-width: 120px;
+        background: transparent;
+        border-color: var(--te-signal-line);
+        color: var(--te-signal);
       }
-      .btn-confirm:hover {
-        background: var(--ac-s);
-        transform: translateY(-1px);
+      .btn-confirm:hover { background: var(--te-signal-tint); border-color: var(--te-signal); transform: translateY(-1px); }
+
+      .btn-secondary {
+        background: transparent;
+        border-color: var(--te-line-strong);
+        color: var(--te-text-2);
       }
+      .btn-secondary:hover { border-color: var(--te-signal-line); color: var(--te-signal); transform: translateY(-1px); }
 
       .btn-primary {
-        background: var(--ac);
-        border-color: var(--ac);
-        color: #fff;
-        min-width: 160px;
-        box-shadow: 0 2px 10px rgba(108, 99, 255, 0.28);
-      }
-      .btn-primary:hover {
-        background: var(--ac-h);
-        border-color: var(--ac-h);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(108, 99, 255, 0.36);
-      }
-
-      /* Attention states */
-      .btn-confirm.attention {
-        animation: confirm-pulse 1.1s ease-in-out infinite;
-      }
-
-      .btn-primary.attention-standby {
-        animation: standby-pulse 1s ease-in-out infinite;
-      }
-
-      @keyframes confirm-pulse {
-        0%,
-        100% {
-          background: var(--surface);
-          color: var(--ac-tx);
-          box-shadow: 0 0 0 0 var(--ac-glow);
-        }
-        50% {
-          background: var(--ac);
-          color: #fff;
-          box-shadow: 0 0 0 7px rgba(108, 99, 255, 0);
-        }
-      }
-
-      @keyframes standby-pulse {
-        0%,
-        100% {
-          background: var(--ac);
-          border-color: var(--ac);
-          box-shadow: 0 0 0 0 rgba(240, 165, 0, 0.4);
-        }
-        50% {
-          background: var(--amber);
-          border-color: var(--amber);
-          box-shadow: 0 0 0 7px rgba(240, 165, 0, 0);
-        }
-      }
-
-      /* Action button row */
-      .action-row {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        margin-top: 22px;
-        flex-wrap: wrap;
-      }
-
-      /* Save button wrapper + tooltip */
-      .save-btn-wrap {
-        position: relative;
-      }
-
-      /* ! icon inside button — hidden by default */
-      .save-warn-mark {
-        display: none;
-        font-weight: 900;
-        margin-right: 5px;
-        font-size: 14px;
-        line-height: 1;
-      }
-
-      .btn-primary.attention-standby .save-warn-mark {
-        display: inline;
-      }
-
-      /* Tooltip bubble */
-      .save-tip {
-        position: absolute;
-        bottom: calc(100% + 10px);
-        left: 50%;
-        transform: translateX(-50%) translateY(4px);
-        background: var(--tx);
-        color: #fff;
-        font-size: 12px;
-        font-weight: 500;
-        padding: 7px 13px;
-        border-radius: var(--r2);
-        white-space: nowrap;
-        pointer-events: none;
-        opacity: 0;
-        transition:
-          opacity 150ms ease,
-          transform 150ms ease;
-        z-index: 10;
-      }
-
-      /* Arrow */
-      .save-tip::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border: 5px solid transparent;
-        border-top-color: var(--tx);
-      }
-
-      /* Show tooltip only when button is in attention state AND focused/hovered */
-      .save-btn-wrap:has(.attention-standby:hover) .save-tip,
-      .save-btn-wrap:has(.attention-standby:focus-visible) .save-tip {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-
-      /* ── Countdown / Feedback ── */
-      .feedback-area {
-        margin-top: 14px;
-        display: grid;
-        gap: 8px;
-      }
-
-      .cd-display {
-        display: flex;
-        align-items: center;
-        gap: 14px;
+        background: var(--te-signal-fill);
+        border-color: var(--te-signal-fill);
+        color: var(--te-on-signal);
+        width: 100%;
         padding: 14px 18px;
-        background: var(--surface-sub);
-        border: 1px solid var(--border);
-        border-radius: var(--r3);
+        font-size: 14px;
       }
+      .btn-primary .ico { color: var(--te-on-signal); }
+      .btn-primary:hover { background: var(--te-signal-up); border-color: var(--te-signal-up); transform: translateY(-1px); }
 
-      .cd-num {
-        font-family: var(--mono);
-        font-size: 28px;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        font-variant-numeric: tabular-nums;
-        color: var(--ac);
-        line-height: 1;
-        flex-shrink: 0;
+      .btn-primary.attention { animation: te-arm-pulse 1.15s ease-in-out infinite; }
+      .btn-confirm.attention { animation: te-confirm-pulse 1.15s ease-in-out infinite; }
+
+      /* ── Ticket list (足し算・引き算) ── */
+      .ticket-empty {
+        font-size: 12.5px;
+        color: var(--te-text-mut);
+        padding: 12px 14px;
+        background: var(--te-surface-2);
+        border: 1px dashed var(--te-line-strong);
+        border-radius: var(--te-r-md);
       }
-
-      .cd-num.col-standby {
-        color: var(--blue);
+      .ticket-list { display: grid; gap: 8px; }
+      .ticket-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 8px 8px 12px;
+        background: var(--te-surface-2);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-md);
       }
-
-      .cd-meta {
+      .ticket-row .ticket-label {
         flex: 1;
         min-width: 0;
-      }
-
-      .cd-meta-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--tx-m);
-        margin-bottom: 2px;
-      }
-
-      .cd-meta-msg {
-        font-size: 12px;
-        color: var(--tx-b);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      /* ── Status card ── */
-      .status-display {
-        font-size: 12px;
-        color: var(--tx-b);
-        background: var(--surface-sub);
-        border: 1px solid var(--border);
-        border-radius: var(--r2);
-        padding: 10px 14px;
-        white-space: pre-wrap;
-        font-variant-numeric: tabular-nums;
-      }
-
-      /* ── Ticket table ── */
-      .ticket-table {
-        width: 100%;
-        border-collapse: collapse;
-        border-radius: var(--r2);
-        overflow: hidden;
-      }
-
-      .ticket-table th {
-        padding: 8px 10px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--tx-m);
-        background: var(--surface-sub);
-        border-bottom: 1px solid var(--border);
-        text-align: left;
-      }
-
-      .ticket-table td {
-        padding: 8px 6px;
-        border-bottom: 1px solid var(--border);
-        vertical-align: middle;
-      }
-
-      .ticket-table tbody tr:last-child td {
-        border-bottom: none;
-      }
-
-      .ticket-table tbody tr:hover {
-        background: rgba(108, 99, 255, 0.025);
-      }
-
-      .ticket-table input[type="text"],
-      .ticket-table input[type="number"] {
-        padding: 7px 9px;
-        font-size: 13px;
-      }
-
-      .ticket-table td:last-child {
-        width: 60px;
-        text-align: center;
-      }
-
-      .btn-remove {
-        padding: 4px 10px;
         background: transparent;
-        border: 1px solid var(--border-str);
-        border-radius: var(--r1);
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--tx-m);
-        cursor: pointer;
-        transition:
-          background 120ms,
-          border-color 120ms,
-          color 120ms;
-        font-family: var(--font);
+        border: none;
+        color: var(--te-text);
+        font-family: var(--te-font);
+        font-size: 14px;
+        font-weight: 500;
+        outline: none;
+        padding: 4px 2px;
       }
+      .ticket-row .ticket-label::placeholder { color: var(--te-text-dim); }
 
-      .btn-remove:hover {
-        background: var(--red-s);
-        border-color: var(--red);
-        color: var(--red);
+      .stepper {
+        display: inline-flex;
+        align-items: center;
+        background: var(--te-bg);
+        border: 1px solid var(--te-line-strong);
+        border-radius: var(--te-r-md);
+        overflow: hidden;
+        flex-shrink: 0;
       }
-
-      .table-footer {
+      .step-btn {
+        width: 36px;
+        height: 36px;
         display: flex;
+        align-items: center;
         justify-content: center;
-        margin-top: 10px;
+        background: transparent;
+        border: none;
+        color: var(--te-text-2);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        transition: background var(--te-dur-fast), color var(--te-dur-fast);
+      }
+      .step-btn:hover { background: var(--te-signal-tint); color: var(--te-signal); }
+      .step-btn:active { background: var(--te-signal-line); }
+      .step-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--te-signal-line); }
+      .step-val {
+        width: 46px;
+        height: 36px;
+        text-align: center;
+        background: transparent;
+        border: none;
+        border-left: 1px solid var(--te-line);
+        border-right: 1px solid var(--te-line);
+        color: var(--te-text);
+        font-family: var(--te-mono);
+        font-size: 15px;
+        font-weight: 600;
+        outline: none;
+        font-variant-numeric: tabular-nums;
+        -moz-appearance: textfield;
+      }
+      .step-val::-webkit-outer-spin-button,
+      .step-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+      .step-val.zero { color: var(--te-text-dim); }
+
+      .row-remove {
+        width: 32px; height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: var(--te-r-sm);
+        color: var(--te-text-mut);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background var(--te-dur-fast), color var(--te-dur-fast), border-color var(--te-dur-fast);
+      }
+      .row-remove:hover { background: var(--te-err-tint); color: var(--te-err); border-color: var(--te-err); }
+
+      .ticket-foot { display: flex; justify-content: flex-start; margin-top: 2px; }
+
+      /* ── Arm step ── */
+      .arm-note { font-size: 12px; color: var(--te-text-mut); margin-top: 10px; text-align: center; }
+      .arm-note.armed { color: var(--te-signal); }
+
+      /* ── Advanced (引き算: 折りたたみ) ── */
+      details.advanced {
+        background: var(--te-surface);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-lg);
+        overflow: hidden;
+      }
+      details.advanced > summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--te-text-2);
+        user-select: none;
+      }
+      details.advanced > summary::-webkit-details-marker { display: none; }
+      details.advanced > summary::before {
+        content: "›";
+        font-size: 18px;
+        line-height: 1;
+        color: var(--te-text-mut);
+        transition: transform var(--te-dur-base) var(--te-ease);
+        display: inline-block;
+      }
+      details.advanced[open] > summary::before { transform: rotate(90deg); }
+      .advanced-inner {
+        padding: 4px 20px 18px;
+        display: grid;
+        gap: 16px;
+      }
+      .adv-field { display: grid; gap: 6px; }
+      .adv-label {
+        font-family: var(--te-mono);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
+      }
+      .adv-field .te-input { max-width: 160px; }
+      .checkbox-row { display: flex; align-items: center; gap: 9px; }
+      .checkbox-row input[type="checkbox"] {
+        width: 17px; height: 17px;
+        accent-color: var(--te-signal-fill);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .checkbox-row label { font-size: 13px; color: var(--te-text-2); cursor: pointer; }
+
+      /* ── Readout ── */
+      .readout {
+        background: var(--te-surface);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-lg);
+        padding: 14px 18px;
+      }
+      .readout-label {
+        font-family: var(--te-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
+        margin-bottom: 8px;
+      }
+      .readout-line {
+        font-family: var(--te-mono);
+        font-size: 12.5px;
+        color: var(--te-text-2);
+        white-space: pre-wrap;
+        word-break: break-word;
       }
 
-      @media (max-width: 720px) {
-        body {
-          padding: 16px 10px 40px;
-        }
-        .hero {
-          padding: 16px 18px;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 10px;
-        }
-        .card {
-          padding: 16px 16px;
-        }
-        .field {
-          grid-template-columns: 1fr;
-          gap: 6px;
-        }
-        .field-label {
-          padding-top: 0;
-        }
-        .guide-steps {
-          gap: 6px;
-        }
-        .step {
-          font-size: 11px;
-        }
+      @keyframes te-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%      { opacity: 0.42; transform: scale(0.8); }
+      }
+      @keyframes te-arm-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 var(--te-signal-line); }
+        50%      { box-shadow: 0 0 0 6px rgba(255, 178, 36, 0); }
+      }
+      @keyframes te-confirm-pulse {
+        0%, 100% { background: transparent; }
+        50%      { background: var(--te-signal-tint); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .chip-dot,
+        .btn-primary.attention,
+        .btn-confirm.attention { animation: none !important; }
+        .mini-cd-val, .step, .step-num { transition: none !important; }
+      }
+
+      @media (max-width: 560px) {
+        .topbar { padding: 10px 16px; }
+        .mini-cd-val { font-size: 22px; }
+        .page { padding: 18px 16px 56px; }
+        .step { padding: 15px 16px; }
       }
     </style>
   </head>
   <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="26" height="26" fill="none">
+            <circle cx="16" cy="16" r="11" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 3.4" />
+            <circle cx="16" cy="16" r="3" stroke="currentColor" stroke-width="1.5" />
+            <line x1="16" y1="1.5" x2="16" y2="7" style="stroke: var(--te-signal)" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </span>
+        <span class="brand-name">TicketEscape</span>
+        <span class="brand-sub">console</span>
+      </div>
+      <div class="mission">
+        <span id="statusChip" class="chip idle" role="status" aria-live="polite">
+          <span class="chip-dot" aria-hidden="true"></span>
+          <span id="statusChipLabel">IDLE</span>
+        </span>
+        <div class="mini-cd">
+          <div id="miniCdEyebrow" class="mini-cd-eyebrow">カウントダウン</div>
+          <div id="miniCdVal" class="mini-cd-val">--:--:--</div>
+        </div>
+      </div>
+    </header>
+
     <main class="page">
-      <!-- Hero -->
-      <section class="hero">
-        <div class="hero-logo">🎫</div>
-        <div class="hero-text">
-          <div class="hero-title">TicketEscape 設定</div>
-          <div class="hero-sub">
-            URLと時刻を設定 → 「確認」で券種取得 → 「実行待機」で完了
-          </div>
+      <p class="intro">
+        上から順に設定してください。各ステップは完了するとチェックが点きます。最後に「実行待機」を押すと、指定時刻に自動で購入ページを開いてカートへ入れます。
+      </p>
+
+      <input id="jobId" type="hidden" />
+
+      <!-- Step 1: URL -->
+      <section id="stepUrl" class="step">
+        <div class="step-head">
+          <div class="step-num">1</div>
+          <div class="step-title">対象URLを入力して確認</div>
+          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
         </div>
-      </section>
-
-      <!-- Basic Settings -->
-      <section class="card">
-        <div class="card-header">
-          <div class="card-icon">⚙️</div>
-          <div class="card-title">基本設定</div>
-        </div>
-
-        <div class="guide-steps">
-          <div class="step"><span class="step-num">1</span>対象URLを入力</div>
-          <div class="step">
-            <span class="step-num">2</span>実行時刻（JST）を入力
+        <div class="step-body">
+          <input id="targetUrl" class="te-input" type="text" placeholder="https://escape.id/..." />
+          <div class="field-help">購入ページのURLをそのまま貼り付け、「確認」を押すと公演名と券種を取得します。</div>
+          <div id="eventReadout" class="event-readout">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+            <span id="eventTitleText"></span>
           </div>
-          <div class="step">
-            <span class="step-num">3</span>「確認」で券種取得
-          </div>
-          <div class="step">
-            <span class="step-num">4</span>数量を設定して「実行待機」
-          </div>
-          <div class="step">
-            <span class="step-num">5</span>設定画面を開いたまま待機
-          </div>
-        </div>
-
-        <div class="field">
-          <div class="field-label">対象URL</div>
-          <div class="field-body">
-            <input
-              id="targetUrl"
-              type="text"
-              placeholder="https://escape.id/..."
-            />
-            <div class="field-help">
-              購入ページのURLをそのまま貼り付けます。
-            </div>
-            <div id="eventTitleBadge" class="ev-badge">
-              <span>🎪</span>
-              <span id="eventTitleText"></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="field">
-          <div class="field-label">実行時刻 (JST)</div>
-          <div class="field-body">
-            <input id="triggerAt" type="datetime-local" step="1" />
-            <div class="field-help">チケット発売時刻をJSTで入力します。</div>
-          </div>
-        </div>
-
-        <details class="advanced">
-          <summary>詳細設定（通常は変更不要）</summary>
-          <div class="advanced-inner">
-            <div class="field" style="margin-bottom: 0">
-              <div class="field-label">クリック間隔 (ms)</div>
-              <div class="field-body">
-                <input
-                  id="clickIntervalMs"
-                  type="number"
-                  min="5"
-                  max="500"
-                  style="max-width: 160px"
-                />
-                <div class="field-help">ボタン連打の間隔。初期値: 30 ms</div>
-              </div>
-            </div>
-            <div class="field" style="margin-bottom: 0">
-              <div class="field-label">並列実行数</div>
-              <div class="field-body">
-                <input
-                  id="parallelTabCount"
-                  type="number"
-                  min="1"
-                  max="5"
-                  style="max-width: 100px"
-                />
-                <div class="field-help">
-                  同時に実行するタブ数。初期値: 1（最大: 5）
-                </div>
-              </div>
-            </div>
-            <div class="field" style="margin-bottom: 0">
-              <div class="field-label">チェックボックス自動ON</div>
-              <div class="field-body">
-                <div class="checkbox-row">
-                  <input id="requireAgreement" type="checkbox" checked />
-                  <label for="requireAgreement"
-                    >フォーム内のチェックボックスをすべて自動チェック（初期値:
-                    ON）</label
-                  >
-                </div>
-              </div>
-            </div>
-          </div>
-        </details>
-
-        <input id="jobId" type="hidden" />
-
-        <div class="action-row">
-          <button id="parseFormButton" class="btn btn-confirm">確認</button>
-          <div class="save-btn-wrap">
-            <button id="saveButton" class="btn btn-primary">
-              <span class="save-warn-mark" aria-hidden="true">！</span>実行待機
+          <div>
+            <button id="parseFormButton" class="btn btn-confirm" type="button">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.3 5.6" /><path d="M4 20v-4h4" /></svg>
+              確認（公演・券種を取得）
             </button>
-            <div class="save-tip" role="tooltip">
-              チケット数量を設定してください
-            </div>
-          </div>
-        </div>
-
-        <div class="feedback-area">
-          <div class="cd-display">
-            <div id="countdownNum" class="cd-num">--:--:--</div>
-            <div class="cd-meta">
-              <div class="cd-meta-label">カウントダウン</div>
-              <div id="countdownMsg" class="cd-meta-msg">
-                カウントダウン未開始
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
-      <!-- Ticket Quantity -->
-      <section class="card">
-        <div class="card-header">
-          <div class="card-icon">🎟</div>
-          <div class="card-title">チケット数量設定</div>
+      <!-- Step 2: Time -->
+      <section id="stepTime" class="step">
+        <div class="step-head">
+          <div class="step-num">2</div>
+          <div class="step-title">実行時刻を設定（JST）</div>
+          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
         </div>
+        <div class="step-body">
+          <input id="triggerAt" class="te-input" type="datetime-local" step="1" style="max-width: 280px" />
+          <div class="field-help">チケット発売時刻を日本時間（JST）で入力します。</div>
+        </div>
+      </section>
 
-        <table class="ticket-table">
-          <thead>
-            <tr>
-              <th>券種名</th>
-              <th style="width: 110px">数量</th>
-              <th style="width: 60px"></th>
-            </tr>
-          </thead>
-          <tbody id="planRows"></tbody>
-        </table>
+      <!-- Step 3: Tickets -->
+      <section id="stepTickets" class="step">
+        <div class="step-head">
+          <div class="step-num">3</div>
+          <div class="step-title">券種ごとに数量を設定</div>
+          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+        </div>
+        <div class="step-body">
+          <div class="field-help">「− ＋」で欲しい枚数に。不要な券種は数量0、または削除（ゴミ箱）してください。</div>
+          <div id="planRows" class="ticket-list"></div>
+          <div class="ticket-foot">
+            <button id="addPlanButton" class="btn btn-secondary" type="button">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              券種を手動で追加
+            </button>
+          </div>
+        </div>
+      </section>
 
-        <div class="table-footer">
-          <button id="addPlanButton" class="btn btn-secondary">
-            ＋ 行を追加
+      <!-- Step 4: Arm -->
+      <section id="stepArm" class="step">
+        <div class="step-head">
+          <div class="step-num">4</div>
+          <div class="step-title">実行待機を開始</div>
+          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+        </div>
+        <div class="step-body">
+          <button id="saveButton" class="btn btn-primary" type="button">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2.5" /></svg>
+            実行待機を開始
           </button>
+          <div id="armNote" class="arm-note">設定を確認したら押してください。この画面は開いたままにします。</div>
         </div>
       </section>
 
-      <!-- Status -->
-      <section class="card">
-        <div class="card-header">
-          <div class="card-icon">📊</div>
-          <div class="card-title">ステータス</div>
+      <!-- Advanced -->
+      <details class="advanced">
+        <summary>詳細設定（通常は変更不要）</summary>
+        <div class="advanced-inner">
+          <div class="adv-field">
+            <span class="adv-label">クリック間隔 (ms)</span>
+            <input id="clickIntervalMs" class="te-input" type="number" min="5" max="500" />
+            <div class="field-help">ボタン連打の間隔。初期値 30 ms。</div>
+          </div>
+          <div class="adv-field">
+            <span class="adv-label">並列実行数</span>
+            <input id="parallelTabCount" class="te-input" type="number" min="1" max="5" style="max-width: 100px" />
+            <div class="field-help">同時に実行するタブ数。初期値 1（最大 5）。</div>
+          </div>
+          <div class="adv-field">
+            <span class="adv-label">チェックボックス自動ON</span>
+            <div class="checkbox-row">
+              <input id="requireAgreement" type="checkbox" checked />
+              <label for="requireAgreement">フォーム内のチェックボックスをすべて自動チェック（初期値 ON）</label>
+            </div>
+          </div>
         </div>
-        <div id="statusText" class="status-display">Ready</div>
+      </details>
+
+      <!-- Readout -->
+      <section class="readout">
+        <div class="readout-label">readout</div>
+        <div id="statusText" class="readout-line">待機なし</div>
       </section>
     </main>
 

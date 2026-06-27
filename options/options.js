@@ -14,12 +14,18 @@
     toJstIsoStringFromDatetimeLocal
   } = shared;
 
+  const TRASH_ICON =
+    '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>';
+
+  const ARM_NOTE_DEFAULT = "設定を確認したら押してください。この画面は開いたままにします。";
+
   const state = {
     elements: {},
     countdownIntervalId: null,
     countdownRunId: 0,
     confirmedTargetUrl: "",
-    eventTitle: ""
+    eventTitle: "",
+    armed: false
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -31,27 +37,39 @@
 
   function bindElements() {
     state.elements = {
-      jobId:             document.getElementById("jobId"),
-      targetUrl:         document.getElementById("targetUrl"),
-      triggerAt:         document.getElementById("triggerAt"),
-      clickIntervalMs:   document.getElementById("clickIntervalMs"),
-      parallelTabCount:  document.getElementById("parallelTabCount"),
-      requireAgreement:  document.getElementById("requireAgreement"),
-      parseFormButton:   document.getElementById("parseFormButton"),
-      saveButton:        document.getElementById("saveButton"),
-      addPlanButton:     document.getElementById("addPlanButton"),
-      planRows:          document.getElementById("planRows"),
-      statusText:        document.getElementById("statusText"),
-      countdownNum:      document.getElementById("countdownNum"),
-      countdownMsg:      document.getElementById("countdownMsg"),
-      eventTitleBadge:   document.getElementById("eventTitleBadge"),
-      eventTitleText:    document.getElementById("eventTitleText")
+      jobId:            document.getElementById("jobId"),
+      targetUrl:        document.getElementById("targetUrl"),
+      triggerAt:        document.getElementById("triggerAt"),
+      clickIntervalMs:  document.getElementById("clickIntervalMs"),
+      parallelTabCount: document.getElementById("parallelTabCount"),
+      requireAgreement: document.getElementById("requireAgreement"),
+      parseFormButton:  document.getElementById("parseFormButton"),
+      saveButton:       document.getElementById("saveButton"),
+      addPlanButton:    document.getElementById("addPlanButton"),
+      planRows:         document.getElementById("planRows"),
+      statusText:       document.getElementById("statusText"),
+      statusChip:       document.getElementById("statusChip"),
+      statusChipLabel:  document.getElementById("statusChipLabel"),
+      miniCdEyebrow:    document.getElementById("miniCdEyebrow"),
+      miniCdVal:        document.getElementById("miniCdVal"),
+      eventReadout:     document.getElementById("eventReadout"),
+      eventTitleText:   document.getElementById("eventTitleText"),
+      armNote:          document.getElementById("armNote"),
+      stepUrl:          document.getElementById("stepUrl"),
+      stepTime:         document.getElementById("stepTime"),
+      stepTickets:      document.getElementById("stepTickets"),
+      stepArm:          document.getElementById("stepArm")
     };
   }
 
   function bindEvents() {
     state.elements.targetUrl.addEventListener("input", () => {
       updateConfirmAttention();
+      updateStepStates();
+    });
+
+    state.elements.triggerAt.addEventListener("input", () => {
+      updateStepStates();
     });
 
     state.elements.parseFormButton.addEventListener("click", () => {
@@ -63,26 +81,53 @@
     });
 
     state.elements.addPlanButton.addEventListener("click", () => {
-      addPlanRow("", 0);
-      updateStandbyAttention();
-    });
-
-    state.elements.planRows.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-      if (target.dataset.action === "remove-plan") {
-        const row = target.closest("tr");
-        if (row) {
-          row.remove();
-          updateStandbyAttention();
+      addPlanRow("", 1);
+      afterPlanChange();
+      const lastRow = state.elements.planRows.lastElementChild;
+      if (lastRow) {
+        const label = lastRow.querySelector("input[data-field='label']");
+        if (label) {
+          label.focus();
         }
       }
     });
 
-    state.elements.planRows.addEventListener("input", () => {
-      updateStandbyAttention();
+    state.elements.planRows.addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-action]");
+      if (!trigger) {
+        return;
+      }
+      const row = trigger.closest(".ticket-row");
+      if (!row) {
+        return;
+      }
+      const action = trigger.dataset.action;
+      if (action === "remove-plan") {
+        row.remove();
+        afterPlanChange();
+        return;
+      }
+      const qtyInput = row.querySelector("input[data-field='qty']");
+      if (!qtyInput) {
+        return;
+      }
+      let value = clampInt(qtyInput.value, 0, 0, 99);
+      if (action === "inc") {
+        value = Math.min(99, value + 1);
+      } else if (action === "dec") {
+        value = Math.max(0, value - 1);
+      }
+      qtyInput.value = String(value);
+      syncQtyZero(qtyInput);
+      afterPlanChange();
+    });
+
+    state.elements.planRows.addEventListener("input", (event) => {
+      const target = event.target;
+      if (target && target.dataset && target.dataset.field === "qty") {
+        syncQtyZero(target);
+      }
+      afterPlanChange();
     });
   }
 
@@ -96,6 +141,8 @@
     }
     updateConfirmAttention();
     updateStandbyAttention();
+    updateStepStates();
+    setIdleCountdown();
   }
 
   async function loadSavedJob() {
@@ -104,10 +151,12 @@
       if (!response.ok || !response.job) {
         state.confirmedTargetUrl = "";
         state.eventTitle = "";
+        updateEventReadout();
         updateConfirmAttention();
         updateStandbyAttention();
+        updateStepStates();
         setStatus("保存済みジョブはありません。");
-        setCountdown("カウントダウン未開始", "--:--:--");
+        setIdleCountdown();
         return;
       }
       populateForm(response.job);
@@ -115,7 +164,7 @@
       startCountdown(response.job, { updateStatus: false });
     } catch (error) {
       setStatus(`ジョブ読み込み失敗: ${error.message}`);
-      setCountdown("カウントダウン未開始", "--:--:--");
+      setIdleCountdown();
     }
   }
 
@@ -125,7 +174,7 @@
     state.confirmedTargetUrl       = normalizeTargetUrlForCompare(state.elements.targetUrl.value);
     state.eventTitle               = String(job.eventTitle || "");
     updateConfirmAttention();
-    updateEventTitleBadge();
+    updateEventReadout();
 
     const triggerEpoch = Date.parse(String(job.triggerAtJst || ""));
     if (Number.isFinite(triggerEpoch)) {
@@ -149,6 +198,7 @@
       }
     }
     updateStandbyAttention();
+    updateStepStates();
   }
 
   async function parseForm() {
@@ -178,9 +228,8 @@
         return;
       }
 
-      // Save event title from parsed page
       state.eventTitle = String(parseResult.eventTitle || "").trim();
-      updateEventTitleBadge();
+      updateEventReadout();
 
       state.elements.planRows.innerHTML = "";
       for (const ticket of tickets) {
@@ -189,7 +238,8 @@
       state.confirmedTargetUrl = normalizeTargetUrlForCompare(targetUrl);
       updateConfirmAttention();
       updateStandbyAttention();
-      setStatus(`券種を ${tickets.length} 件取得しました。`);
+      updateStepStates();
+      setStatus(`券種を ${tickets.length} 件取得しました。数量を設定してください。`);
     } catch (error) {
       setStatus(`確認失敗: ${error.message}`);
     }
@@ -232,14 +282,14 @@
       const response = await sendMessage({ type: MESSAGE_TYPES.SAVE_JOB, job });
       if (!response.ok) {
         setStatus(`実行待機登録失敗: ${response.error || "unknown error"}`);
-        setCountdown("カウントダウン開始失敗", "--:--:--");
+        setIdleCountdown();
         return;
       }
       state.elements.jobId.value = response.job.jobId;
       startCountdown(response.job, { updateStatus: true });
     } catch (error) {
       setStatus(`実行待機登録失敗: ${error.message}`);
-      setCountdown("カウントダウン開始失敗", "--:--:--");
+      setIdleCountdown();
     }
   }
 
@@ -252,13 +302,16 @@
     const targetUrl    = ensureEscapeUrl(job && job.targetUrl);
     const triggerEpoch = Date.parse(String((job && job.triggerAtJst) || ""));
     if (!targetUrl || !Number.isFinite(triggerEpoch)) {
-      setCountdown("カウントダウン未開始", "--:--:--");
+      setIdleCountdown();
       return;
     }
 
     const remainingMs = triggerEpoch - Date.now();
     if (remainingMs <= 0) {
-      setCountdown("実行時刻を過ぎています。時刻を再設定して保存してください。", "00:00:00");
+      setArmed(false);
+      setChip("expired");
+      setMiniCd("00:00:00", "idle");
+      setArmNote("実行時刻を過ぎています。時刻を再設定して保存してください。", false);
       return;
     }
 
@@ -266,6 +319,7 @@
       setStatus("実行待機を開始しました。0秒で購入URLへ遷移します。");
     }
 
+    setArmed(true);
     renderCountdown(triggerEpoch);
     state.countdownIntervalId = globalScope.setInterval(() => {
       if (runId !== state.countdownRunId) {
@@ -280,7 +334,8 @@
           return;
         }
         clearCountdownInterval();
-        setCountdown("遷移中...", "00:00:00");
+        setMiniCd("00:00:00", "tminus");
+        setArmNote("遷移中...", true);
         globalScope.location.assign(targetUrl);
       })
       .catch((error) => {
@@ -288,7 +343,10 @@
           return;
         }
         clearCountdownInterval();
-        setCountdown(`カウントダウン異常: ${error.message || "unknown error"}`, "ERR");
+        setArmed(false);
+        setChip("idle");
+        setMiniCd("ERR", "idle");
+        setArmNote(`カウントダウン異常: ${error.message || "unknown error"}`, false);
       });
   }
 
@@ -300,8 +358,16 @@
     const seconds = totalSeconds % 60;
     const pad = (n) => String(n).padStart(2, "0");
     const numStr = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-    const msgStr = "で遷移します";
-    setCountdown(msgStr, numStr);
+    const phase  = remainingMs <= 60000 ? "tminus" : "armed";
+
+    setChip(phase);
+    setMiniCd(numStr, phase);
+    setArmNote(
+      phase === "tminus"
+        ? "まもなく遷移します。この画面を閉じないでください。"
+        : "実行待機中。0秒で購入ページへ遷移します。",
+      true
+    );
   }
 
   async function waitForTriggerEpoch(triggerEpoch, isCanceled) {
@@ -344,7 +410,7 @@
   }
 
   function collectPlanRows() {
-    const rows = Array.from(state.elements.planRows.querySelectorAll("tr"));
+    const rows = Array.from(state.elements.planRows.querySelectorAll(".ticket-row"));
     return rows
       .map((row) => {
         const labelInput = row.querySelector("input[data-field='label']");
@@ -357,43 +423,105 @@
   }
 
   function addPlanRow(label, qty) {
-    const row = document.createElement("tr");
+    const row = document.createElement("div");
+    row.className = "ticket-row";
     row.innerHTML = [
-      "<td><input data-field='label' type='text' placeholder='券種名' /></td>",
-      "<td><input data-field='qty' type='number' min='0' max='99' /></td>",
-      "<td><button data-action='remove-plan' class='btn-remove' type='button'>削除</button></td>"
+      "<input data-field='label' class='ticket-label' type='text' placeholder='券種名' />",
+      "<div class='stepper'>",
+      "<button class='step-btn' data-action='dec' type='button' aria-label='数量を減らす'>−</button>",
+      "<input data-field='qty' class='step-val' type='number' min='0' max='99' inputmode='numeric' />",
+      "<button class='step-btn' data-action='inc' type='button' aria-label='数量を増やす'>＋</button>",
+      "</div>",
+      `<button class='row-remove' data-action='remove-plan' type='button' aria-label='この券種を削除'>${TRASH_ICON}</button>`
     ].join("");
+
     const labelInput = row.querySelector("input[data-field='label']");
     const qtyInput   = row.querySelector("input[data-field='qty']");
     labelInput.value = String(label || "");
     qtyInput.value   = String(Number.isFinite(Number(qty)) ? Number(qty) : 0);
+    syncQtyZero(qtyInput);
     state.elements.planRows.appendChild(row);
   }
 
-  function setStatus(text) {
-    state.elements.statusText.textContent = String(text || "");
+  function syncQtyZero(qtyInput) {
+    const value = clampInt(qtyInput.value, 0, 0, 99);
+    qtyInput.classList.toggle("zero", value <= 0);
   }
 
-  function setCountdown(msg, numStr) {
-    if (state.elements.countdownMsg) {
-      state.elements.countdownMsg.textContent = String(msg || "");
-    }
-    if (state.elements.countdownNum && numStr !== undefined) {
-      state.elements.countdownNum.textContent = String(numStr);
+  function afterPlanChange() {
+    updateStandbyAttention();
+    updateStepStates();
+  }
+
+  /* ── Status chip + mini countdown ── */
+
+  function setChip(phase) {
+    const meta = {
+      idle:    { cls: "idle",   label: "IDLE" },
+      armed:   { cls: "armed",  label: "STANDBY" },
+      tminus:  { cls: "tminus", label: "T-MINUS" },
+      expired: { cls: "idle",   label: "EXPIRED" }
+    }[phase] || { cls: "idle", label: "IDLE" };
+    state.elements.statusChip.className = `chip ${meta.cls}`;
+    state.elements.statusChipLabel.textContent = meta.label;
+  }
+
+  function setMiniCd(numStr, phase) {
+    const eyebrow = {
+      idle:   "カウントダウン",
+      armed:  "発売まで",
+      tminus: "まもなく"
+    }[phase] || "カウントダウン";
+    state.elements.miniCdEyebrow.textContent = eyebrow;
+    state.elements.miniCdVal.textContent = String(numStr);
+    state.elements.miniCdVal.className =
+      "mini-cd-val" + (phase === "armed" || phase === "tminus" ? ` ${phase}` : "");
+  }
+
+  function setArmNote(text, armed) {
+    state.elements.armNote.textContent = String(text || "");
+    state.elements.armNote.classList.toggle("armed", Boolean(armed));
+  }
+
+  function setIdleCountdown() {
+    setArmed(false);
+    setChip("idle");
+    setMiniCd("--:--:--", "idle");
+    if (!state.armed) {
+      updateStandbyAttention();
     }
   }
 
-  function updateEventTitleBadge() {
-    const badge = state.elements.eventTitleBadge;
-    const text  = state.elements.eventTitleText;
-    if (!badge || !text) {
+  function setArmed(value) {
+    state.armed = Boolean(value);
+    state.elements.stepArm.classList.toggle("done", state.armed);
+  }
+
+  /* ── Step completion indicators ── */
+
+  function updateStepStates() {
+    const urlOk = Boolean(ensureEscapeUrl(state.elements.targetUrl.value));
+    state.elements.stepUrl.classList.toggle("done", urlOk);
+
+    const triggerIso = toJstIsoStringFromDatetimeLocal(state.elements.triggerAt.value);
+    const timeOk = Boolean(triggerIso) && Number.isFinite(Date.parse(triggerIso));
+    state.elements.stepTime.classList.toggle("done", timeOk);
+
+    const ticketsOk = collectPlanRows().some((plan) => plan.targetQty > 0);
+    state.elements.stepTickets.classList.toggle("done", ticketsOk);
+  }
+
+  function updateEventReadout() {
+    const readout = state.elements.eventReadout;
+    const text    = state.elements.eventTitleText;
+    if (!readout || !text) {
       return;
     }
     if (state.eventTitle) {
       text.textContent = state.eventTitle;
-      badge.classList.add("visible");
+      readout.classList.add("visible");
     } else {
-      badge.classList.remove("visible");
+      readout.classList.remove("visible");
     }
   }
 
@@ -423,8 +551,19 @@
         return !Number.isFinite(qty) || qty <= 0;
       });
 
-    state.elements.saveButton.classList.toggle("attention-standby", allZero);
+    state.elements.saveButton.classList.toggle("attention", allZero);
     state.elements.saveButton.title = allZero ? "数量がすべて0です。数量を見直してください。" : "";
+
+    if (!state.armed) {
+      setArmNote(
+        allZero ? "数量がすべて0です。「3」で枚数を設定してください。" : ARM_NOTE_DEFAULT,
+        false
+      );
+    }
+  }
+
+  function setStatus(text) {
+    state.elements.statusText.textContent = String(text || "");
   }
 
   function sendMessage(message) {

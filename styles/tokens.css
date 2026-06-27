@@ -1,0 +1,82 @@
+/* TicketEscape Design System「CONSOLE（管制盤）」 — design tokens
+   正典は /DESIGN.md。色＝計器の信号。アンバーは希少な差し色。
+   ダークが固定の正準モード。OS の prefers-color-scheme には追従しない。
+   ライトは将来の手動切替用に <html data-theme="light"> で opt-in する副系。 */
+
+:root {
+  color-scheme: dark;
+
+  --te-bg:          #0B0E13;
+  --te-surface:     #11161E;
+  --te-surface-2:   #171D27;
+  --te-line:        rgba(255, 255, 255, 0.09);
+  --te-line-strong: rgba(255, 255, 255, 0.16);
+
+  --te-text:        #E7ECF2;
+  --te-text-2:      #AEB8C7;
+  --te-text-mut:    #8C97A8;
+  --te-text-dim:    #5C6675;
+
+  --te-signal:      #FFB224;
+  --te-signal-fill: #FFB224;
+  --te-signal-up:   #FFC247;
+  --te-signal-dn:   #C8861A;
+  --te-signal-tint: rgba(255, 178, 36, 0.12);
+  --te-signal-line: rgba(255, 178, 36, 0.38);
+  --te-on-signal:   #1A1206;
+
+  --te-ok:          #3FB950;
+  --te-ok-tint:     rgba(63, 185, 80, 0.13);
+  --te-on-ok:       #08220E;
+  --te-err:         #F8513D;
+  --te-err-tint:    rgba(248, 81, 61, 0.13);
+  --te-on-err:      #2A0A06;
+
+  --te-r-sm:   6px;
+  --te-r-md:   10px;
+  --te-r-lg:   14px;
+  --te-r-pill: 999px;
+
+  --te-shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --te-dur-fast: 120ms;
+  --te-dur-base: 180ms;
+  --te-ease:     cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --te-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  --te-mono: "SF Mono", ui-monospace, SFMono-Regular, "JetBrains Mono",
+    Menlo, Consolas, monospace;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --te-bg:          #EEF1F6;
+  --te-surface:     #FFFFFF;
+  --te-surface-2:   #F4F6FB;
+  --te-line:        rgba(16, 22, 34, 0.10);
+  --te-line-strong: rgba(16, 22, 34, 0.18);
+
+  --te-text:        #121722;
+  --te-text-2:      #3B4660;
+  --te-text-mut:    #6B768C;
+  --te-text-dim:    #9AA3B4;
+
+  --te-signal:      #B26A06;
+  --te-signal-fill: #FFB224;
+  --te-signal-up:   #9A5C05;
+  --te-signal-dn:   #C8861A;
+  --te-signal-tint: rgba(178, 106, 6, 0.10);
+  --te-signal-line: rgba(178, 106, 6, 0.40);
+  --te-on-signal:   #1A1206;
+
+  --te-ok:          #1E8E3E;
+  --te-ok-tint:     rgba(30, 142, 62, 0.12);
+  --te-on-ok:       #08220E;
+  --te-err:         #D93025;
+  --te-err-tint:    rgba(217, 48, 37, 0.12);
+  --te-on-err:      #2A0A06;
+
+  --te-shadow-menu: 0 8px 24px rgba(16, 22, 34, 0.16);
+}

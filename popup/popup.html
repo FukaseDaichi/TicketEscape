@@ -4,411 +4,318 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TicketEscape</title>
+    <link rel="stylesheet" href="../styles/tokens.css" />
     <style>
-      /* ── Design System ─────────────────────────────────────────
-         Base:   #edf0f7  (cool light gray)
-         Main:   #141a2e  (deep navy)
-         Accent: #6c63ff  (vivid indigo-purple)
-      ─────────────────────────────────────────────────────────── */
-      :root {
-        --bg:          #edf0f7;
-        --surface:     #ffffff;
-        --surface-sub: #f5f7fc;
-        --border:      #dde2ef;
-        --border-str:  #bdc5d8;
-
-        --tx:    #141a2e;
-        --tx-b:  #3c4766;
-        --tx-m:  #7d89a2;
-
-        --ac:    #6c63ff;
-        --ac-h:  #5a52e8;
-        --ac-s:  rgba(108, 99, 255, 0.09);
-        --ac-tx: #4f48d9;
-
-        --green:   #0bb870;
-        --green-s: rgba(11, 184, 112, 0.11);
-        --amber:   #f0a500;
-        --amber-s: rgba(240, 165, 0, 0.11);
-        --red:     #e53535;
-        --red-s:   rgba(229, 53, 53, 0.11);
-        --blue:    #3b82f6;
-        --blue-s:  rgba(59, 130, 246, 0.11);
-
-        --r1: 6px;
-        --r2: 10px;
-        --r3: 14px;
-        --r4: 20px;
-
-        --sh1: 0 1px 3px rgba(20, 26, 46, .06), 0 1px 2px rgba(20, 26, 46, .04);
-        --sh2: 0 4px 14px rgba(20, 26, 46, .08), 0 2px 4px rgba(20, 26, 46, .04);
-
-        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
-                "Hiragino Sans", "Yu Gothic UI", sans-serif;
-        --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-      }
-
+      /* デザイントークン（色・角丸・モーション）は ../styles/tokens.css に集約。 */
       * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body { background: var(--te-bg); }
 
       body {
         width: 360px;
-        background: var(--bg);
-        color: var(--tx);
-        font-family: var(--font);
-        font-size: 13px;
-        line-height: 1.5;
+        color: var(--te-text);
+        font-family: var(--te-font);
+        font-size: 14px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
       }
 
+      .sr-only {
+        position: absolute;
+        width: 1px; height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      .ico    { width: 16px; height: 16px; display: inline-block; flex-shrink: 0; }
+      .ico-sm { width: 13px; height: 13px; }
+      .ico-lg { width: 30px; height: 30px; }
+
       /* ── Header ── */
-      .header {
+      .te-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 16px 10px;
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--te-line);
       }
-
-      .logo {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .logo-mark {
-        width: 30px;
-        height: 30px;
-        background: linear-gradient(135deg, var(--ac) 0%, #a78bfa 100%);
-        border-radius: var(--r2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        box-shadow: 0 2px 8px rgba(108, 99, 255, 0.35);
-      }
-
-      .logo-name {
-        font-size: 15px;
+      .brand { display: flex; align-items: center; gap: 9px; }
+      .brand-mark { display: flex; color: var(--te-text); }
+      .brand-name {
+        font-size: 14px;
         font-weight: 700;
         letter-spacing: -0.01em;
-        color: var(--tx);
       }
 
-      /* ── Status badge ── */
-      .s-badge {
+      /* ── Status chip ── */
+      .chip {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        padding: 3px 9px 3px 7px;
-        border-radius: 99px;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: var(--te-r-pill);
+        border: 1px solid transparent;
+        font-family: var(--te-mono);
         font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        transition: background 200ms, color 200ms;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
-      .s-badge::before {
-        content: '';
-        width: 6px;
-        height: 6px;
+      .chip-dot {
+        width: 6px; height: 6px;
         border-radius: 50%;
         background: currentColor;
         flex-shrink: 0;
       }
-      .s-badge.idle    { background: var(--surface-sub); color: var(--tx-m); border: 1px solid var(--border); }
-      .s-badge.standby { background: var(--blue-s);  color: var(--blue); }
-      .s-badge.running { background: var(--amber-s); color: var(--amber); }
-      .s-badge.success { background: var(--green-s); color: var(--green); }
-      .s-badge.failed  { background: var(--red-s);   color: var(--red); }
+      .chip.idle    { color: var(--te-text-mut); background: var(--te-surface-2); border-color: var(--te-line); }
+      .chip.armed   { color: var(--te-signal);    background: var(--te-signal-tint); border-color: var(--te-signal-line); }
+      .chip.tminus,
+      .chip.firing  { color: var(--te-signal-up); background: var(--te-signal-tint); border-color: var(--te-signal-line); }
+      .chip.success { color: var(--te-ok);  background: var(--te-ok-tint); }
+      .chip.failed  { color: var(--te-err); background: var(--te-err-tint); }
+      .chip.armed  .chip-dot { animation: te-pulse 1.4s ease-in-out infinite; }
+      .chip.tminus .chip-dot { animation: te-pulse 0.9s ease-in-out infinite; }
+      .chip.firing .chip-dot { animation: te-pulse 0.6s ease-in-out infinite; }
 
-      .s-badge.standby::before,
-      .s-badge.running::before {
-        animation: dot-pulse 1.4s ease-in-out infinite;
+      /* ── Hero (countdown / result) ── */
+      .hero {
+        padding: 18px 16px 16px;
+        border-bottom: 1px solid var(--te-line);
       }
-
-      @keyframes dot-pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50%       { opacity: .5; transform: scale(.8); }
-      }
-
-      /* ── Main card ── */
-      .main-card {
-        margin: 0 12px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r4);
-        box-shadow: var(--sh2);
-        overflow: hidden;
-      }
-
-      /* Event section */
-      .ev-section {
-        padding: 16px 18px 14px;
-        border-bottom: 1px solid var(--border);
-        position: relative;
-      }
-
-      .ev-eyebrow {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--tx-m);
-        margin-bottom: 4px;
-      }
-
-      .ev-title {
-        font-size: 16px;
-        font-weight: 700;
-        line-height: 1.35;
-        color: var(--tx);
-        letter-spacing: -0.01em;
-        word-break: break-all;
-      }
-
-      .ev-title.empty {
-        color: var(--tx-m);
-        font-weight: 500;
-        font-size: 13px;
-        font-style: italic;
-      }
-
-      .ev-url {
-        margin-top: 5px;
+      .hero-eyebrow {
+        font-family: var(--te-mono);
         font-size: 11px;
-        color: var(--tx-m);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
+      }
+      .hero-value {
+        font-family: var(--te-mono);
+        font-size: 44px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        line-height: 1.05;
+        margin-top: 7px;
+        color: var(--te-text-dim);
+        font-variant-numeric: tabular-nums;
+        transition: color var(--te-dur-base) var(--te-ease),
+          transform var(--te-dur-base) var(--te-ease);
+        transform-origin: left center;
+      }
+      .hero-value.armed   { color: var(--te-signal); }
+      .hero-value.tminus,
+      .hero-value.firing  { color: var(--te-signal-up); transform: scale(1.025); }
+      .hero-value.success { color: var(--te-ok); }
+      .hero-value.failed  { color: var(--te-err); }
+      .hero-sub {
+        margin-top: 7px;
+        font-size: 12px;
+        color: var(--te-text-mut);
+      }
+      .hero-result {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 13px;
+        margin-top: 7px;
       }
+      .hero-result .ico-lg { flex-shrink: 0; }
+      .hero-result-title { font-size: 21px; font-weight: 700; line-height: 1.2; }
+      .hero-result .hero-sub { margin-top: 3px; }
 
-      .ev-url::before {
-        content: '🔗';
-        font-size: 10px;
-        flex-shrink: 0;
+      /* ── Panel (job details) ── */
+      .panel { padding: 15px 16px; }
+      .eyebrow {
+        font-family: var(--te-mono);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
       }
-
-      /* Meta section */
-      .meta-section {
-        padding: 12px 18px;
-        display: grid;
-        gap: 9px;
+      .ev-title {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.4;
+        margin-top: 4px;
+        color: var(--te-text);
+        word-break: break-word;
       }
-
-      .meta-row {
+      .ev-title.empty {
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--te-text-mut);
+      }
+      .ev-url {
         display: flex;
-        align-items: flex-start;
-        gap: 10px;
+        align-items: center;
+        gap: 6px;
+        margin-top: 7px;
+        font-family: var(--te-mono);
+        font-size: 11px;
+        color: var(--te-text-mut);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .ev-url .ico-sm { color: var(--te-text-dim); }
+      .ev-url span {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
       }
 
+      .panel-div { height: 1px; background: var(--te-line); margin: 13px 0; }
+
+      .meta { display: grid; gap: 11px; }
+      .meta-row { display: flex; align-items: flex-start; gap: 10px; }
       .meta-ico {
-        width: 28px;
-        height: 28px;
-        border-radius: var(--r1);
-        background: var(--surface-sub);
-        border: 1px solid var(--border);
+        width: 28px; height: 28px;
+        border-radius: var(--te-r-sm);
+        background: var(--te-surface-2);
+        border: 1px solid var(--te-line);
+        color: var(--te-text-mut);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 13px;
         flex-shrink: 0;
-        margin-top: 1px;
       }
-
-      .meta-info {}
-
+      .meta-info { min-width: 0; }
       .meta-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--tx-m);
-        margin-bottom: 1px;
-      }
-
-      .meta-value {
-        font-size: 13px;
+        font-family: var(--te-mono);
+        font-size: 10.5px;
         font-weight: 600;
-        color: var(--tx-b);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
+      }
+      .meta-value {
+        margin-top: 2px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--te-text-2);
         font-variant-numeric: tabular-nums;
       }
+      .meta-value.mono { font-family: var(--te-mono); }
 
-      .ticket-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        margin-top: 3px;
-      }
-
-      .ticket-chip {
+      .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+      .tchip {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
-        padding: 2px 7px;
-        background: var(--ac-s);
-        border: 1px solid rgba(108, 99, 255, 0.18);
-        border-radius: 99px;
+        gap: 5px;
+        padding: 3px 8px;
+        border-radius: var(--te-r-pill);
+        background: var(--te-surface-2);
+        border: 1px solid var(--te-line);
+        color: var(--te-text-2);
         font-size: 11px;
+        font-weight: 500;
+      }
+      .tchip .ico-sm { color: var(--te-text-mut); }
+      .tchip .qty {
+        font-family: var(--te-mono);
         font-weight: 600;
-        color: var(--ac-tx);
-      }
-
-      /* ── Countdown block ── */
-      .countdown-block {
-        margin: 8px 12px 0;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r3);
-        padding: 14px 16px;
-        box-shadow: var(--sh1);
-        display: flex;
-        align-items: center;
-        gap: 14px;
-      }
-
-      .cd-icon {
-        font-size: 22px;
-        flex-shrink: 0;
-      }
-
-      .cd-body {
-        flex: 1;
-        min-width: 0;
-      }
-
-      .cd-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--tx-m);
-        margin-bottom: 2px;
-      }
-
-      .cd-value {
-        font-family: var(--mono);
-        font-size: 24px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        line-height: 1;
-        color: var(--ac);
-        font-variant-numeric: tabular-nums;
-      }
-
-      .cd-value.col-standby { color: var(--blue); }
-      .cd-value.col-success { color: var(--green); }
-      .cd-value.col-failed  { color: var(--red); }
-
-      /* ── Button ── */
-      .btn-open {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        margin: 10px 12px 14px;
-        width: calc(100% - 24px);
-        padding: 11px 16px;
-        background: var(--ac);
-        color: #fff;
-        border: none;
-        border-radius: var(--r2);
-        font-family: var(--font);
-        font-size: 13px;
-        font-weight: 700;
-        cursor: pointer;
-        letter-spacing: 0.01em;
-        transition: background 120ms ease, transform 80ms ease,
-          box-shadow 120ms ease;
-        box-shadow: 0 2px 8px rgba(108, 99, 255, .30);
-      }
-
-      .btn-open:hover {
-        background: var(--ac-h);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 14px rgba(108, 99, 255, .38);
-      }
-
-      .btn-open:active {
-        transform: translateY(0);
-        box-shadow: 0 1px 4px rgba(108, 99, 255, .25);
+        color: var(--te-text);
       }
 
       /* ── Empty state ── */
-      .empty-state {
-        padding: 28px 20px;
-        text-align: center;
-      }
-
-      .empty-icon {
-        font-size: 36px;
-        margin-bottom: 10px;
-        display: block;
-      }
-
+      .empty { padding: 28px 20px; text-align: center; }
+      .empty .ico-lg { color: var(--te-text-dim); }
       .empty-title {
+        margin-top: 11px;
         font-size: 14px;
         font-weight: 700;
-        color: var(--tx-b);
-        margin-bottom: 5px;
+        color: var(--te-text-2);
       }
-
       .empty-body {
+        margin-top: 5px;
         font-size: 12px;
-        color: var(--tx-m);
-        line-height: 1.7;
+        line-height: 1.65;
+        color: var(--te-text-mut);
       }
+      .empty-body .err { color: var(--te-err); }
 
-      /* Result states */
-      .result-block {
-        padding: 20px 18px;
-        text-align: center;
-      }
-
-      .result-icon {
-        font-size: 40px;
-        margin-bottom: 8px;
-        display: block;
-      }
-
-      .result-title {
-        font-size: 18px;
+      /* ── Primary action ── */
+      .btn-primary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: calc(100% - 32px);
+        margin: 14px 16px 16px;
+        padding: 11px 16px;
+        background: var(--te-signal-fill);
+        color: var(--te-on-signal);
+        border: 1px solid var(--te-signal-fill);
+        border-radius: var(--te-r-md);
+        font-family: var(--te-font);
+        font-size: 13px;
         font-weight: 700;
-        margin-bottom: 4px;
+        cursor: pointer;
+        transition: background var(--te-dur-fast) var(--te-ease),
+          transform var(--te-dur-fast) var(--te-ease);
+      }
+      .btn-primary .ico { color: var(--te-on-signal); }
+      .btn-primary:hover {
+        background: var(--te-signal-up);
+        border-color: var(--te-signal-up);
+        transform: translateY(-1px);
+      }
+      .btn-primary:active { transform: translateY(0); }
+      .btn-primary:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--te-signal-line);
       }
 
-      .result-sub {
-        font-size: 12px;
-        color: var(--tx-m);
+      @keyframes te-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%      { opacity: 0.42; transform: scale(0.8); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .chip-dot { animation: none !important; }
+        .hero-value { transition: none !important; transform: none !important; }
+        .btn-primary { transition: none !important; }
       }
     </style>
   </head>
   <body>
-    <div class="header">
-      <div class="logo">
-        <div class="logo-mark">🎫</div>
-        <span class="logo-name">TicketEscape</span>
+    <header class="te-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="26" height="26" fill="none">
+            <circle cx="16" cy="16" r="11" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 3.4" />
+            <circle cx="16" cy="16" r="3" stroke="currentColor" stroke-width="1.5" />
+            <line x1="16" y1="1.5" x2="16" y2="7" style="stroke: var(--te-signal)" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </span>
+        <span class="brand-name">TicketEscape</span>
       </div>
-      <div id="statusBadge" class="s-badge idle">IDLE</div>
-    </div>
+      <span id="statusChip" class="chip idle" role="status" aria-live="polite">
+        <span class="chip-dot" aria-hidden="true"></span>
+        <span id="statusChipLabel">IDLE</span>
+      </span>
+    </header>
 
-    <div id="mainCard" class="main-card">
-      <div class="empty-state">
-        <span class="empty-icon">⚙️</span>
-        <div class="empty-title">設定がありません</div>
-        <div class="empty-body">設定画面でURLと実行時刻を<br>保存してください。</div>
-      </div>
-    </div>
+    <section id="hero" class="hero" aria-label="カウントダウン">
+      <div class="hero-eyebrow">カウントダウン</div>
+      <div class="hero-value idle">--:--:--</div>
+      <div class="hero-sub">実行待機していません</div>
+    </section>
 
-    <div id="countdownBlock" class="countdown-block" style="display:none">
-      <div class="cd-icon">⏱</div>
-      <div class="cd-body">
-        <div class="cd-label">カウントダウン</div>
-        <div id="cdValue" class="cd-value">--:--:--</div>
-      </div>
-    </div>
+    <div id="mainCard" class="panel"></div>
 
-    <button id="openOptionsButton" class="btn-open" type="button">
-      設定画面を開く →
+    <button id="openOptionsButton" class="btn-primary" type="button">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" />
+        <path d="M12 4.5V3M12 21v-1.5M4.5 12H3M21 12h-1.5M6.4 6.4 5.3 5.3M18.7 18.7l-1.1-1.1M17.6 6.4l1.1-1.1M5.3 18.7l1.1-1.1" />
+      </svg>
+      設定を開く
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h13M13 6l6 6-6 6" />
+      </svg>
     </button>
 
     <script src="../lib/shared.js"></script>

@@ -6,8 +6,27 @@
 
   const { MESSAGE_TYPES, STATUS } = shared;
 
+  /* ── Inline monoline icons (no emoji) — inherit currentColor ── */
+  const ICON = {
+    link:
+      '<svg class="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 1 0-5-5l-1.2 1.2"/><path d="M14.5 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 1 0 5 5l1.2-1.2"/></svg>',
+    calendar:
+      '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9.5h16"/></svg>',
+    ticket:
+      '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.2a1.6 1.6 0 0 1 1.6-1.6h13.8a1.6 1.6 0 0 1 1.6 1.6v1.1a1.7 1.7 0 0 0 0 3.4v1.1a1.6 1.6 0 0 1-1.6 1.6H5.1a1.6 1.6 0 0 1-1.6-1.6v-1.1a1.7 1.7 0 0 0 0-3.4z"/><path d="M14.6 8v8"/></svg>',
+    ticketSm:
+      '<svg class="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.2a1.6 1.6 0 0 1 1.6-1.6h13.8a1.6 1.6 0 0 1 1.6 1.6v1.1a1.7 1.7 0 0 0 0 3.4v1.1a1.6 1.6 0 0 1-1.6 1.6H5.1a1.6 1.6 0 0 1-1.6-1.6v-1.1a1.7 1.7 0 0 0 0-3.4z"/><path d="M14.6 8v8"/></svg>',
+    check:
+      '<svg class="ico-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5" stroke-width="1.4"/><path d="M7.5 12.3l3 3 6-6.6"/></svg>',
+    cross:
+      '<svg class="ico-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5" stroke-width="1.4"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg>',
+    reticle:
+      '<svg class="ico-lg" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke-dasharray="2 3.6"/><circle cx="16" cy="16" r="4"/><circle cx="16" cy="16" r="0.8" fill="currentColor" stroke="none"/></svg>'
+  };
+
   const el = {};
   let cdIntervalId = null;
+  let jobState = null;
 
   document.addEventListener("DOMContentLoaded", () => {
     bindElements();
@@ -16,181 +35,157 @@
   });
 
   function bindElements() {
-    el.statusBadge     = document.getElementById("statusBadge");
+    el.statusChip      = document.getElementById("statusChip");
+    el.statusChipLabel = document.getElementById("statusChipLabel");
+    el.hero            = document.getElementById("hero");
     el.mainCard        = document.getElementById("mainCard");
-    el.countdownBlock  = document.getElementById("countdownBlock");
-    el.cdValue         = document.getElementById("cdValue");
     el.openOptions     = document.getElementById("openOptionsButton");
   }
 
   function bindEvents() {
     el.openOptions.addEventListener("click", () => {
-      chrome.runtime.openOptionsPage();
+      void openOptionsPage();
     });
+  }
+
+  /* Open the options page as a tab in the CURRENT window.
+     Reuse an already-open options tab if one exists (avoids duplicate
+     countdowns racing to the target URL), otherwise create a new tab
+     beside the current one. Falls back to the built-in opener on error. */
+  async function openOptionsPage() {
+    const optionsUrl = chrome.runtime.getURL("options/options.html");
+    try {
+      const existing = await chrome.tabs.query({ url: optionsUrl });
+      if (existing && existing.length) {
+        const tab = existing[0];
+        await chrome.tabs.update(tab.id, { active: true });
+        if (typeof tab.windowId === "number") {
+          await chrome.windows.update(tab.windowId, { focused: true });
+        }
+      } else {
+        await chrome.tabs.create({ url: optionsUrl });
+      }
+    } catch (_) {
+      chrome.runtime.openOptionsPage();
+    }
   }
 
   async function loadStatus() {
     try {
       const res = await sendMessage({ type: MESSAGE_TYPES.GET_STATUS });
       if (!res.ok) {
-        renderEmpty("ステータス取得に失敗しました。");
+        render(null, null);
+        renderEmpty("ステータス取得に失敗しました");
         return;
       }
       render(res.job || null, res.status || null);
     } catch (err) {
+      render(null, null);
       renderEmpty(err.message);
     }
+  }
+
+  /* ── Phase model — maps STATUS to the CONSOLE state machine (DESIGN.md §3) ── */
+
+  const FIRING_STATES = new Set([
+    STATUS.WARMUP_START,
+    STATUS.WAIT_FORM,
+    STATUS.PREPARE_TICKETS,
+    STATUS.CLICK_SUBMIT,
+    STATUS.VERIFY_RESULT
+  ]);
+
+  const PHASE_META = {
+    idle:    { code: "IDLE",    eyebrow: "カウントダウン", sub: "実行待機していません" },
+    armed:   { code: "STANDBY", eyebrow: "発売まで",       sub: "0 秒で購入ページへ遷移します" },
+    tminus:  { code: "T-MINUS", eyebrow: "まもなく発射",   sub: "このまま画面を閉じないでください" },
+    firing:  { code: "FIRING",  eyebrow: "実行中",         sub: "カート投入を実行しています" },
+    success: { code: "SECURED", title: "確保成功",         sub: "カート投入が完了しました" },
+    failed:  { code: "FAILED",  title: "実行失敗",         sub: "設定画面でログを確認してください" }
+  };
+
+  function phaseOf(state, remainingMs) {
+    if (state === STATUS.SUCCESS) return "success";
+    if (state === STATUS.FAILED) return "failed";
+    if (FIRING_STATES.has(state)) return "firing";
+    const hasRemaining = Number.isFinite(remainingMs);
+    if (hasRemaining && remainingMs <= 0) return "firing";
+    if (state === STATUS.WAIT_TRIGGER || (hasRemaining && remainingMs > 0)) {
+      return remainingMs <= 60000 ? "tminus" : "armed";
+    }
+    return "idle";
   }
 
   /* ── Main render ── */
 
   function render(job, statusObj) {
-    const state = (statusObj && statusObj.state) ? statusObj.state : STATUS.IDLE;
-    applyStatusBadge(state);
+    jobState = (statusObj && statusObj.state) ? statusObj.state : STATUS.IDLE;
 
     if (!job) {
-      renderEmpty(null);
+      const phase = jobState === STATUS.SUCCESS
+        ? "success"
+        : (jobState === STATUS.FAILED ? "failed" : "idle");
+      applyPhase(phase, NaN);
+      if (phase === "idle") {
+        renderEmpty(null);
+      }
+      stopCountdown();
       return;
     }
 
     const triggerEpoch = Date.parse(String(job.triggerAtJst || ""));
-
-    // Result states — show dedicated UI
-    if (state === STATUS.SUCCESS) {
-      renderResult("success");
-      hideCountdown();
-      return;
-    }
-    if (state === STATUS.FAILED) {
-      renderResult("failed");
-      hideCountdown();
-      return;
-    }
+    const remaining = Number.isFinite(triggerEpoch) ? triggerEpoch - Date.now() : NaN;
+    const phase = phaseOf(jobState, remaining);
 
     renderJobCard(job);
 
-    if (Number.isFinite(triggerEpoch)) {
-      const remaining = triggerEpoch - Date.now();
-      if (remaining > 0 || state === STATUS.WAIT_TRIGGER) {
-        showCountdown(triggerEpoch, state);
-      } else {
-        hideCountdown();
-      }
+    if (phase === "armed" || phase === "tminus") {
+      startCountdown(triggerEpoch);
     } else {
-      hideCountdown();
+      stopCountdown();
+      applyPhase(phase, remaining);
     }
   }
 
-  function applyStatusBadge(state) {
-    const { cls, label } = statusMeta(state);
-    el.statusBadge.className = `s-badge ${cls}`;
-    el.statusBadge.textContent = label;
-  }
+  /* ── Phase UI (chip + hero stay in sync) ── */
 
-  function statusMeta(state) {
-    switch (state) {
-      case STATUS.WARMUP_START:
-      case STATUS.WAIT_FORM:
-      case STATUS.PREPARE_TICKETS:
-        return { cls: "running", label: "実行中" };
-      case STATUS.WAIT_TRIGGER:
-        return { cls: "standby", label: "スタンバイ" };
-      case STATUS.CLICK_SUBMIT:
-      case STATUS.VERIFY_RESULT:
-        return { cls: "running", label: "送信中" };
-      case STATUS.SUCCESS:
-        return { cls: "success", label: "成功" };
-      case STATUS.FAILED:
-        return { cls: "failed", label: "失敗" };
-      default:
-        return { cls: "idle", label: "IDLE" };
+  function applyPhase(phase, remainingMs) {
+    const meta = PHASE_META[phase] || PHASE_META.idle;
+
+    el.statusChip.className = `chip ${phase}`;
+    el.statusChipLabel.textContent = meta.code;
+
+    if (phase === "success" || phase === "failed") {
+      el.hero.innerHTML = `
+        <div class="hero-result" style="color:var(${phase === "success" ? "--te-ok" : "--te-err"})">
+          ${phase === "success" ? ICON.check : ICON.cross}
+          <div>
+            <div class="hero-result-title">${meta.title}</div>
+            <div class="hero-sub">${meta.sub}</div>
+          </div>
+        </div>`;
+      return;
     }
+
+    const value = phase === "firing" ? "00:00:00"
+      : (Number.isFinite(remainingMs) ? fmtCountdown(Math.max(0, remainingMs)) : "--:--:--");
+
+    el.hero.innerHTML = `
+      <div class="hero-eyebrow">${meta.eyebrow}</div>
+      <div class="hero-value ${phase}">${value}</div>
+      <div class="hero-sub">${meta.sub}</div>`;
   }
 
-  /* ── Job card ── */
+  /* ── Countdown (ticks while armed / t-minus, recomputes phase each tick) ── */
 
-  function renderJobCard(job) {
-    const eventTitle   = String(job.eventTitle || "").trim();
-    const url          = String(job.targetUrl  || "");
-    const triggerJst   = formatJst(job.triggerAtJst);
-    const plans        = Array.isArray(job.ticketPlans) ? job.ticketPlans : [];
-    const activePlans  = plans.filter((p) => Number(p.targetQty) > 0);
-
-    const titleHtml = eventTitle
-      ? `<div class="ev-title">${esc(eventTitle)}</div>`
-      : `<div class="ev-title empty">イベント名未取得（確認ボタンで取得）</div>`;
-
-    const ticketChipsHtml = activePlans.length
-      ? `<div class="ticket-chips">${activePlans.map((p) =>
-          `<span class="ticket-chip">🎟 ${esc(p.ticketLabel)} × ${Number(p.targetQty)}</span>`
-        ).join("")}</div>`
-      : `<div class="meta-value" style="color:var(--tx-m);font-weight:500">未設定</div>`;
-
-    el.mainCard.innerHTML = `
-      <div class="ev-section">
-        <div class="ev-eyebrow">イベント</div>
-        ${titleHtml}
-        <div class="ev-url" title="${esc(url)}">${esc(shortenUrl(url))}</div>
-      </div>
-      <div class="meta-section">
-        <div class="meta-row">
-          <div class="meta-ico">📅</div>
-          <div class="meta-info">
-            <div class="meta-label">実行時刻 (JST)</div>
-            <div class="meta-value">${esc(triggerJst)}</div>
-          </div>
-        </div>
-        <div class="meta-row">
-          <div class="meta-ico">🎟</div>
-          <div class="meta-info">
-            <div class="meta-label">チケット</div>
-            ${ticketChipsHtml}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /* ── Result states ── */
-
-  function renderResult(type) {
-    const isSuccess = type === "success";
-    el.mainCard.innerHTML = `
-      <div class="result-block">
-        <span class="result-icon">${isSuccess ? "✅" : "❌"}</span>
-        <div class="result-title" style="color:var(${isSuccess ? "--green" : "--red"})">
-          ${isSuccess ? "購入完了！" : "実行失敗"}
-        </div>
-        <div class="result-sub">${isSuccess ? "カートへの追加が完了しました。" : "設定画面でログを確認してください。"}</div>
-      </div>
-    `;
-  }
-
-  function renderEmpty(message) {
-    const extra = message ? `<br><span style="font-size:11px">${esc(message)}</span>` : "";
-    el.mainCard.innerHTML = `
-      <div class="empty-state">
-        <span class="empty-icon">⚙️</span>
-        <div class="empty-title">設定がありません</div>
-        <div class="empty-body">設定画面でURLと実行時刻を<br>保存してください。${extra}</div>
-      </div>
-    `;
-    hideCountdown();
-  }
-
-  /* ── Countdown ── */
-
-  function showCountdown(triggerEpoch, state) {
-    el.countdownBlock.style.display = "";
+  function startCountdown(triggerEpoch) {
     stopCountdown();
 
-    const colClass = state === STATUS.WAIT_TRIGGER ? "cd-value col-standby" : "cd-value";
-
     function tick() {
-      const rem = Math.max(0, triggerEpoch - Date.now());
-      el.cdValue.className = colClass;
-      el.cdValue.textContent = fmtCountdown(rem);
-      if (rem <= 0) {
+      const remaining = triggerEpoch - Date.now();
+      const phase = phaseOf(jobState, remaining);
+      applyPhase(phase, remaining);
+      if (phase !== "armed" && phase !== "tminus") {
         stopCountdown();
       }
     }
@@ -199,16 +194,67 @@
     cdIntervalId = setInterval(tick, 250);
   }
 
-  function hideCountdown() {
-    el.countdownBlock.style.display = "none";
-    stopCountdown();
-  }
-
   function stopCountdown() {
     if (cdIntervalId !== null) {
       clearInterval(cdIntervalId);
       cdIntervalId = null;
     }
+  }
+
+  /* ── Job card ── */
+
+  function renderJobCard(job) {
+    const eventTitle = String(job.eventTitle || "").trim();
+    const url        = String(job.targetUrl || "");
+    const triggerJst = formatJst(job.triggerAtJst);
+    const plans      = Array.isArray(job.ticketPlans) ? job.ticketPlans : [];
+    const active     = plans.filter((p) => Number(p.targetQty) > 0);
+
+    const titleHtml = eventTitle
+      ? `<div class="ev-title">${esc(eventTitle)}</div>`
+      : `<div class="ev-title empty">イベント名は未取得です（確認で取得）</div>`;
+
+    const ticketHtml = active.length
+      ? `<div class="chips">${active.map((p) =>
+          `<span class="tchip">${ICON.ticketSm}${esc(p.ticketLabel)}<span class="qty">×${Number(p.targetQty)}</span></span>`
+        ).join("")}</div>`
+      : `<div class="meta-value">未設定</div>`;
+
+    el.mainCard.innerHTML = `
+      <div class="eyebrow">イベント</div>
+      ${titleHtml}
+      <div class="ev-url" title="${esc(url)}">${ICON.link}<span>${esc(shortenUrl(url))}</span></div>
+      <div class="panel-div"></div>
+      <div class="meta">
+        <div class="meta-row">
+          <div class="meta-ico">${ICON.calendar}</div>
+          <div class="meta-info">
+            <div class="meta-label">実行時刻 (JST)</div>
+            <div class="meta-value mono">${esc(triggerJst)}</div>
+          </div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-ico">${ICON.ticket}</div>
+          <div class="meta-info">
+            <div class="meta-label">券種</div>
+            ${ticketHtml}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /* ── Empty state ── */
+
+  function renderEmpty(message) {
+    const extra = message
+      ? `<br><span class="err">${esc(message)}</span>`
+      : "";
+    el.mainCard.innerHTML = `
+      <div class="empty">
+        ${ICON.reticle}
+        <div class="empty-title">設定がありません</div>
+        <div class="empty-body">設定画面で URL と実行時刻を保存してください。${extra}</div>
+      </div>`;
   }
 
   /* ── Helpers ── */
