@@ -110,6 +110,33 @@
       .hero-value.firing  { color: var(--te-signal-up); transform: scale(1.025); }
       .hero-value.success { color: var(--te-ok); }
       .hero-value.failed  { color: var(--te-err); }
+      /* Departure board: ライブのカウントダウン中だけ盤面を点ける（options と統一） */
+      .hero-value.armed,
+      .hero-value.tminus,
+      .hero-value.firing {
+        display: inline-block;
+        padding: 10px 14px;
+        border-radius: var(--te-r-md);
+        background: #070A0E;
+        border: 1px solid var(--te-line);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05),
+          inset 0 -8px 16px rgba(0, 0, 0, 0.45);
+        text-shadow: 0 0 14px rgba(255, 178, 36, 0.45);
+        position: relative;
+      }
+      .hero-value.armed::after,
+      .hero-value.tminus::after,
+      .hero-value.firing::after {
+        content: "";
+        position: absolute;
+        left: 9px;
+        right: 9px;
+        top: 50%;
+        height: 1px;
+        background: rgba(0, 0, 0, 0.6);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
+        pointer-events: none;
+      }
       .hero-sub {
         margin-top: 7px;
         font-size: 12px;
@@ -294,10 +321,11 @@
       .mini-btn:hover { border-color: var(--te-signal-line); color: var(--te-signal); }
       .danger-btn {
         width: 100%;
-        border-color: rgba(248, 81, 61, 0.5);
-        color: var(--te-err);
+        border-color: var(--te-line-strong);
+        color: var(--te-text-2);
       }
-      .danger-btn:hover { border-color: var(--te-err); background: var(--te-err-tint); }
+      .danger-btn:hover { border-color: var(--te-err); background: var(--te-err-tint); color: var(--te-err); }
+      .danger-btn:focus-visible { border-color: var(--te-err); color: var(--te-err); }
       .ticket-editor { display: grid; gap: 6px; }
       .ticket-row {
         display: grid;
@@ -356,7 +384,8 @@
       }
       .form-note.warn { color: var(--te-signal); }
 
-      /* ── Primary action ── */
+      /* ── Action（popup はナビのみ。発射の主アクションが無いので無彩。
+            アンバー焦点はカウントダウン盤面に一本化する＝§2.1 黄金律）── */
       .btn-primary {
         display: flex;
         align-items: center;
@@ -365,23 +394,25 @@
         width: calc(100% - 32px);
         margin: 14px 16px 16px;
         padding: 11px 16px;
-        background: var(--te-signal-fill);
-        color: var(--te-on-signal);
-        border: 1px solid var(--te-signal-fill);
+        background: transparent;
+        color: var(--te-text-2);
+        border: 1px solid var(--te-line-strong);
         border-radius: var(--te-r-md);
         font-family: var(--te-font);
         font-size: 13px;
         font-weight: 700;
         cursor: pointer;
         transition: background var(--te-dur-fast) var(--te-ease),
+          border-color var(--te-dur-fast), color var(--te-dur-fast),
           transform var(--te-dur-fast) var(--te-ease);
       }
-      .btn-primary .ico { color: var(--te-on-signal); }
+      .btn-primary .ico { color: var(--te-text-mut); }
       .btn-primary:hover {
-        background: var(--te-signal-up);
-        border-color: var(--te-signal-up);
+        border-color: var(--te-signal-line);
+        color: var(--te-signal);
         transform: translateY(-1px);
       }
+      .btn-primary:hover .ico { color: var(--te-signal); }
       .btn-primary:active { transform: translateY(0); }
       .btn-primary:focus-visible {
         outline: none;
