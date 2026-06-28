@@ -107,6 +107,8 @@
 
   // Main visual of the ticket page (§5). Primary selector is the user-specified
   // `div[class^="first"] img`; falls back to og:image, then the largest image.
+  // When the resolved URL has no recognizable image extension (e.g. an
+  // extensionless image endpoint), prefer the largest in-page `.png` <img>.
   function extractHeroImageUrl(selectorOverrides) {
     const overrideSelector = selectorOverrides && selectorOverrides.heroImage;
     const candidates = [];
@@ -137,17 +139,72 @@
       return best ? best.currentSrc || best.src : "";
     });
 
+    let primary = "";
     for (const getCandidate of candidates) {
       try {
         const url = ensureHttpsUrl(toAbsoluteUrl(getCandidate()));
         if (url) {
-          return url;
+          primary = url;
+          break;
         }
       } catch (_) {
         // Move on to the next candidate.
       }
     }
-    return "";
+
+    // If the resolved URL has no recognizable image extension, prefer the
+    // largest in-page <img> whose src is a .png file (§5).
+    if (!hasImageExtension(primary)) {
+      try {
+        const pngUrl = ensureHttpsUrl(toAbsoluteUrl(findLargestPngImageUrl()));
+        if (pngUrl) {
+          return pngUrl;
+        }
+      } catch (_) {
+        // Keep the primary result below.
+      }
+    }
+
+    return primary;
+  }
+
+  // True when the URL's path ends in a recognized image extension. Query
+  // strings are ignored so `foo.png?v=2` still counts as a png.
+  function hasImageExtension(url) {
+    try {
+      const u = new URL(String(url || ""), location.href);
+      return /\.(png|jpe?g|gif|webp)$/i.test(u.pathname);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Largest in-page <img> whose resolved src path ends in `.png`. Falls back to
+  // the first match when areas are 0 (image not yet loaded / hidden).
+  function findLargestPngImageUrl() {
+    let best = null;
+    let bestArea = 0;
+    for (const img of Array.from(document.images || [])) {
+      const src = img.currentSrc || img.src || "";
+      if (!isPngUrl(src)) {
+        continue;
+      }
+      const area = (img.naturalWidth || img.width || 0) * (img.naturalHeight || img.height || 0);
+      if (best === null || area > bestArea) {
+        bestArea = area;
+        best = img;
+      }
+    }
+    return best ? best.currentSrc || best.src : "";
+  }
+
+  function isPngUrl(src) {
+    try {
+      const u = new URL(String(src || ""), location.href);
+      return /\.png$/i.test(u.pathname);
+    } catch (_) {
+      return false;
+    }
   }
 
   function toAbsoluteUrl(src) {
