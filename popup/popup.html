@@ -127,6 +127,16 @@
 
       /* ── Panel (job details) ── */
       .panel { padding: 15px 16px; }
+      .hero-img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: var(--te-r-md);
+        border: 1px solid var(--te-line);
+        background: var(--te-surface-2);
+        margin-bottom: 12px;
+      }
       .eyebrow {
         font-family: var(--te-mono);
         font-size: 10.5px;
@@ -237,6 +247,115 @@
       }
       .empty-body .err { color: var(--te-err); }
 
+      /* ── Edit form ── */
+      .edit-form { display: grid; gap: 12px; }
+      .field { display: grid; gap: 5px; }
+      .field-label {
+        font-family: var(--te-mono);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
+      }
+      .te-input {
+        width: 100%;
+        padding: 9px 10px;
+        background: var(--te-surface-2);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-md);
+        color: var(--te-text);
+        font-family: var(--te-mono);
+        font-size: 12px;
+        outline: none;
+      }
+      .te-input:focus {
+        border-color: var(--te-signal-line);
+        box-shadow: 0 0 0 3px var(--te-signal-line);
+      }
+      input[type="datetime-local"].te-input { color-scheme: dark; }
+      .read-btn,
+      .mini-btn,
+      .danger-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border-radius: var(--te-r-md);
+        border: 1px solid var(--te-line-strong);
+        background: transparent;
+        color: var(--te-text-2);
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .read-btn:hover,
+      .mini-btn:hover { border-color: var(--te-signal-line); color: var(--te-signal); }
+      .danger-btn {
+        width: 100%;
+        border-color: rgba(248, 81, 61, 0.5);
+        color: var(--te-err);
+      }
+      .danger-btn:hover { border-color: var(--te-err); background: var(--te-err-tint); }
+      .ticket-editor { display: grid; gap: 6px; }
+      .ticket-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        padding: 7px 8px;
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-md);
+        background: var(--te-surface-2);
+      }
+      .ticket-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .stepper {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--te-line-strong);
+        border-radius: var(--te-r-sm);
+        overflow: hidden;
+        background: var(--te-bg);
+      }
+      .step-btn {
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        color: var(--te-text-2);
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .step-val {
+        width: 34px;
+        height: 28px;
+        border: none;
+        border-left: 1px solid var(--te-line);
+        border-right: 1px solid var(--te-line);
+        background: transparent;
+        color: var(--te-text);
+        text-align: center;
+        font-family: var(--te-mono);
+        font-weight: 700;
+        -moz-appearance: textfield;
+      }
+      .step-val::-webkit-outer-spin-button,
+      .step-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+      .form-note {
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--te-text-mut);
+      }
+      .form-note.warn { color: var(--te-signal); }
+
       /* ── Primary action ── */
       .btn-primary {
         display: flex;
@@ -267,6 +386,14 @@
       .btn-primary:focus-visible {
         outline: none;
         box-shadow: 0 0 0 3px var(--te-signal-line);
+      }
+      .btn-primary:disabled,
+      .read-btn:disabled,
+      .mini-btn:disabled,
+      .danger-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+        transform: none;
       }
 
       @keyframes te-pulse {
@@ -312,7 +439,7 @@
         <circle cx="12" cy="12" r="3.2" />
         <path d="M12 4.5V3M12 21v-1.5M4.5 12H3M21 12h-1.5M6.4 6.4 5.3 5.3M18.7 18.7l-1.1-1.1M17.6 6.4l1.1-1.1M5.3 18.7l1.1-1.1" />
       </svg>
-      設定を開く
+      詳細コンソールで開く
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M5 12h13M13 6l6 6-6 6" />
       </svg>

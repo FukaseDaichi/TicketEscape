@@ -78,6 +78,7 @@
       .chip.idle   { color: var(--te-text-mut); background: var(--te-surface-2); border-color: var(--te-line); }
       .chip.armed  { color: var(--te-signal);    background: var(--te-signal-tint); border-color: var(--te-signal-line); }
       .chip.tminus { color: var(--te-signal-up); background: var(--te-signal-tint); border-color: var(--te-signal-line); }
+      .chip.failed { color: var(--te-err);       background: var(--te-err-tint); border-color: rgba(248, 81, 61, 0.45); }
       .chip.armed  .chip-dot { animation: te-pulse 1.4s ease-in-out infinite; }
       .chip.tminus .chip-dot { animation: te-pulse 0.9s ease-in-out infinite; }
 
@@ -105,17 +106,48 @@
 
       /* ── Page ── */
       .page {
-        width: min(720px, 100%);
+        width: min(1040px, 100%);
         margin: 0 auto;
         padding: 24px 22px 72px;
         display: grid;
-        gap: 14px;
+        gap: 18px;
       }
 
       .intro {
         font-size: 13px;
         color: var(--te-text-mut);
         padding: 2px 2px 4px;
+      }
+
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .flow-column,
+      .side-column {
+        display: grid;
+        gap: 14px;
+      }
+      .section-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 2px;
+      }
+      .section-title h2 {
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      .section-title span {
+        color: var(--te-text-mut);
+        font-size: 12px;
+      }
+      @media (max-width: 900px) {
+        .workspace-grid { grid-template-columns: 1fr; }
       }
 
       /* ── Step card ── */
@@ -217,6 +249,11 @@
       }
       .btn:focus-visible { box-shadow: 0 0 0 3px var(--te-signal-line); }
       .btn:active { transform: translateY(0) !important; }
+      .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.48;
+        transform: none !important;
+      }
 
       .btn-confirm {
         background: transparent;
@@ -242,6 +279,15 @@
       }
       .btn-primary .ico { color: var(--te-on-signal); }
       .btn-primary:hover { background: var(--te-signal-up); border-color: var(--te-signal-up); transform: translateY(-1px); }
+
+      .btn-danger {
+        background: transparent;
+        border-color: rgba(248, 81, 61, 0.5);
+        color: var(--te-err);
+        width: 100%;
+        padding: 12px 18px;
+      }
+      .btn-danger:hover { background: var(--te-err-tint); border-color: var(--te-err); transform: translateY(-1px); }
 
       .btn-primary.attention { animation: te-arm-pulse 1.15s ease-in-out infinite; }
       .btn-confirm.attention { animation: te-confirm-pulse 1.15s ease-in-out infinite; }
@@ -423,6 +469,203 @@
         word-break: break-word;
       }
 
+      /* ── Current reservation card (live job, §8.1) ── */
+      .current-res {
+        background: linear-gradient(180deg, rgba(255,178,36,0.08), rgba(17,22,30,0) 42%), var(--te-surface);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-lg);
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+      }
+      .current-res.active { border-color: var(--te-signal-line); }
+      .current-res.empty { background: var(--te-surface); }
+      .cr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+      .cr-eyebrow {
+        font-family: var(--te-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--te-text-mut);
+      }
+      .cr-sync {
+        margin-top: 3px;
+        color: var(--te-text-dim);
+        font-family: var(--te-mono);
+        font-size: 10px;
+      }
+      .cr-body {
+        display: grid;
+        grid-template-columns: 168px minmax(0, 1fr);
+        gap: 15px;
+        align-items: start;
+        justify-items: stretch;
+      }
+      .cr-hero {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: var(--te-r-md);
+        border: 1px solid var(--te-line);
+        background: var(--te-surface-2);
+        flex-shrink: 0;
+      }
+      .cr-hero[hidden] + .cr-info { grid-column: 1 / -1; }
+      .current-res.empty .cr-body { grid-template-columns: 1fr; }
+      .cr-info {
+        min-width: 0;
+        width: 100%;
+        display: grid;
+        gap: 6px;
+        flex: 1;
+        justify-items: start;
+        align-content: start;
+        text-align: left;
+      }
+      .cr-title {
+        width: 100%;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.25;
+        text-align: left;
+        word-break: break-word;
+      }
+      .cr-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        align-items: center;
+        font-size: 12.5px;
+        color: var(--te-text-2);
+      }
+      .cr-date { font-family: var(--te-mono); }
+      .cr-cd {
+        width: 100%;
+        font-family: var(--te-mono);
+        font-size: 42px;
+        font-weight: 600;
+        color: var(--te-signal);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+        text-align: left;
+      }
+      .cr-url {
+        width: 100%;
+        font-family: var(--te-mono);
+        font-size: 11px;
+        color: var(--te-text-dim);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+      }
+      .cr-empty {
+        width: 100%;
+        color: var(--te-text-mut);
+        font-size: 12.5px;
+        line-height: 1.55;
+        text-align: left;
+      }
+      .cr-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .cr-actions .btn-danger,
+      .cr-actions .btn-secondary { width: 100%; }
+      .cr-actions .btn-danger { grid-column: 1 / -1; }
+      @media (max-width: 560px) {
+        .cr-body { grid-template-columns: 1fr; }
+        .cr-cd { font-size: 34px; }
+        .cr-actions { grid-template-columns: 1fr; }
+      }
+
+      /* ── Run history ── */
+      .history {
+        background: var(--te-surface);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-lg);
+        padding: 16px 18px;
+      }
+      .history-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .history-title {
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .history-list { display: grid; gap: 8px; }
+      .history-empty {
+        color: var(--te-text-mut);
+        font-size: 12.5px;
+        padding: 10px 0;
+      }
+      .run-item {
+        background: var(--te-surface-2);
+        border: 1px solid var(--te-line);
+        border-radius: var(--te-r-md);
+        overflow: hidden;
+      }
+      .run-item > summary {
+        list-style: none;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+      }
+      .run-item > summary::-webkit-details-marker { display: none; }
+      .run-state {
+        font-family: var(--te-mono);
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+      }
+      .run-state.success { color: var(--te-ok); }
+      .run-state.failed { color: var(--te-err); }
+      .run-main { min-width: 0; }
+      .run-title {
+        font-size: 13px;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .run-meta {
+        margin-top: 2px;
+        font-family: var(--te-mono);
+        font-size: 11px;
+        color: var(--te-text-mut);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .run-caret {
+        color: var(--te-text-mut);
+        transition: transform var(--te-dur-fast) var(--te-ease);
+      }
+      .run-item[open] .run-caret { transform: rotate(90deg); }
+      .run-detail {
+        border-top: 1px solid var(--te-line);
+        padding: 11px 12px 12px;
+        display: grid;
+        gap: 9px;
+      }
+      .run-detail-line {
+        font-family: var(--te-mono);
+        font-size: 11.5px;
+        color: var(--te-text-2);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .run-actions { display: flex; justify-content: flex-start; }
+
       @keyframes te-pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
         50%      { opacity: 0.42; transform: scale(0.8); }
@@ -478,111 +721,168 @@
 
     <main class="page">
       <p class="intro">
-        上から順に設定してください。各ステップは完了するとチェックが点きます。最後に「実行待機」を押すと、指定時刻に自動で購入ページを開いてカートへ入れます。
+        上から順に設定してください。各ステップは完了するとチェックが点きます。最後に予約すると、指定時刻に自動で購入ページを開いてカートへ入れます。
       </p>
 
       <input id="jobId" type="hidden" />
 
-      <!-- Step 1: URL -->
-      <section id="stepUrl" class="step">
-        <div class="step-head">
-          <div class="step-num">1</div>
-          <div class="step-title">対象URLを入力して確認</div>
-          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-        </div>
-        <div class="step-body">
-          <input id="targetUrl" class="te-input" type="text" placeholder="https://escape.id/..." />
-          <div class="field-help">購入ページのURLをそのまま貼り付け、「確認」を押すと公演名と券種を取得します。</div>
-          <div id="eventReadout" class="event-readout">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-            <span id="eventTitleText"></span>
-          </div>
+      <section id="currentReservation" class="current-res empty" aria-labelledby="crEyebrow">
+        <div class="cr-head">
           <div>
-            <button id="parseFormButton" class="btn btn-confirm" type="button">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.3 5.6" /><path d="M4 20v-4h4" /></svg>
-              確認（公演・券種を取得）
-            </button>
+            <span id="crEyebrow" class="cr-eyebrow">ライブ予約</span>
+            <div id="crSync" class="cr-sync">未同期</div>
           </div>
+          <span id="crChip" class="chip idle" role="status" aria-live="polite">
+            <span class="chip-dot" aria-hidden="true"></span>
+            <span id="crChipLabel">NO RESERVATION</span>
+          </span>
         </div>
-      </section>
-
-      <!-- Step 2: Time -->
-      <section id="stepTime" class="step">
-        <div class="step-head">
-          <div class="step-num">2</div>
-          <div class="step-title">実行時刻を設定（JST）</div>
-          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-        </div>
-        <div class="step-body">
-          <input id="triggerAt" class="te-input" type="datetime-local" step="1" style="max-width: 280px" />
-          <div class="field-help">チケット発売時刻を日本時間（JST）で入力します。</div>
-        </div>
-      </section>
-
-      <!-- Step 3: Tickets -->
-      <section id="stepTickets" class="step">
-        <div class="step-head">
-          <div class="step-num">3</div>
-          <div class="step-title">券種ごとに数量を設定</div>
-          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-        </div>
-        <div class="step-body">
-          <div class="field-help">「− ＋」で欲しい枚数に。不要な券種は数量0、または削除（ゴミ箱）してください。</div>
-          <div id="planRows" class="ticket-list"></div>
-          <div class="ticket-foot">
-            <button id="addPlanButton" class="btn btn-secondary" type="button">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-              券種を手動で追加
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Step 4: Arm -->
-      <section id="stepArm" class="step">
-        <div class="step-head">
-          <div class="step-num">4</div>
-          <div class="step-title">実行待機を開始</div>
-          <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-        </div>
-        <div class="step-body">
-          <button id="saveButton" class="btn btn-primary" type="button">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2.5" /></svg>
-            実行待機を開始
-          </button>
-          <div id="armNote" class="arm-note">設定を確認したら押してください。この画面は開いたままにします。</div>
-        </div>
-      </section>
-
-      <!-- Advanced -->
-      <details class="advanced">
-        <summary>詳細設定（通常は変更不要）</summary>
-        <div class="advanced-inner">
-          <div class="adv-field">
-            <span class="adv-label">クリック間隔 (ms)</span>
-            <input id="clickIntervalMs" class="te-input" type="number" min="5" max="500" />
-            <div class="field-help">ボタン連打の間隔。初期値 30 ms。</div>
-          </div>
-          <div class="adv-field">
-            <span class="adv-label">並列実行数</span>
-            <input id="parallelTabCount" class="te-input" type="number" min="1" max="5" style="max-width: 100px" />
-            <div class="field-help">同時に実行するタブ数。初期値 1（最大 5）。</div>
-          </div>
-          <div class="adv-field">
-            <span class="adv-label">チェックボックス自動ON</span>
-            <div class="checkbox-row">
-              <input id="requireAgreement" type="checkbox" checked />
-              <label for="requireAgreement">フォーム内のチェックボックスをすべて自動チェック（初期値 ON）</label>
+        <div class="cr-body">
+          <img id="crHero" class="cr-hero" alt="" referrerpolicy="no-referrer" hidden />
+          <div class="cr-info">
+            <div id="crTitle" class="cr-title">現在の予約はありません</div>
+            <div class="cr-meta">
+              <span id="crDate" class="cr-date">ページ内パネル、ポップアップ、または下のフォームから予約できます。</span>
+              <span id="crTickets" class="cr-tickets"></span>
             </div>
+            <div id="crUrl" class="cr-url"></div>
+            <div id="crCountdown" class="cr-cd">--:--:--</div>
+            <div id="crEmpty" class="cr-empty">他の画面で予約や取り消しを行うと、この領域へ自動で反映されます。</div>
           </div>
         </div>
-      </details>
-
-      <!-- Readout -->
-      <section class="readout">
-        <div class="readout-label">readout</div>
-        <div id="statusText" class="readout-line">待機なし</div>
+        <div class="cr-actions">
+          <button id="crEditButton" class="btn btn-secondary" type="button" disabled>フォームに読み込む</button>
+          <button id="crRefreshButton" class="btn btn-secondary" type="button">最新に更新</button>
+          <button id="crCancelButton" class="btn btn-danger" type="button" disabled>予約取り消し</button>
+        </div>
       </section>
+
+      <div class="workspace-grid">
+        <div class="flow-column">
+          <div class="section-title">
+            <h2>予約を作成・編集</h2>
+            <span>フォームはライブ予約と独立しています</span>
+          </div>
+
+          <!-- Step 1: URL -->
+          <section id="stepUrl" class="step">
+            <div class="step-head">
+              <div class="step-num">1</div>
+              <div class="step-title">予約対象ページ</div>
+              <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+            </div>
+            <div class="step-body">
+              <input id="targetUrl" class="te-input" type="text" placeholder="https://escape.id/..." />
+              <div class="field-help">URLパラメータ付きの購入ページURLを指定し、「情報を読み取る」を押すと公演名と券種を取得します。</div>
+              <div id="eventReadout" class="event-readout">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                <span id="eventTitleText"></span>
+              </div>
+              <div>
+                <button id="parseFormButton" class="btn btn-confirm" type="button">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.3 5.6" /><path d="M4 20v-4h4" /></svg>
+                  情報を読み取る
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 2: Time -->
+          <section id="stepTime" class="step">
+            <div class="step-head">
+              <div class="step-num">2</div>
+              <div class="step-title">実行時刻を設定（JST）</div>
+              <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+            </div>
+            <div class="step-body">
+              <input id="triggerAt" class="te-input" type="datetime-local" step="1" style="max-width: 280px" />
+              <div class="field-help">チケット発売時刻を日本時間（JST）で入力します。</div>
+            </div>
+          </section>
+
+          <!-- Step 3: Tickets -->
+          <section id="stepTickets" class="step">
+            <div class="step-head">
+              <div class="step-num">3</div>
+              <div class="step-title">券種ごとに数量を設定</div>
+              <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+            </div>
+            <div class="step-body">
+              <div class="field-help">「− ＋」で欲しい枚数に。不要な券種は数量0、または削除（ゴミ箱）してください。</div>
+              <div id="planRows" class="ticket-list"></div>
+              <div class="ticket-foot">
+                <button id="addPlanButton" class="btn btn-secondary" type="button">
+                  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                  券種を手動で追加
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 4: Arm -->
+          <section id="stepArm" class="step">
+            <div class="step-head">
+              <div class="step-num">4</div>
+              <div class="step-title">予約</div>
+              <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+            </div>
+            <div class="step-body">
+              <button id="saveButton" class="btn btn-primary" type="button">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 2.5" /></svg>
+                予約
+              </button>
+              <div id="armNote" class="arm-note">設定を確認したら押してください。この画面は開いたままにします。</div>
+            </div>
+          </section>
+        </div>
+
+        <div class="side-column">
+          <div class="section-title">
+            <h2>状態と履歴</h2>
+            <span>同期確認用</span>
+          </div>
+
+          <!-- Readout -->
+          <section class="readout">
+            <div class="readout-label">readout</div>
+            <div id="statusText" class="readout-line">待機なし</div>
+          </section>
+
+          <!-- Advanced -->
+          <details class="advanced">
+            <summary>詳細設定（通常は変更不要）</summary>
+            <div class="advanced-inner">
+              <div class="adv-field">
+                <span class="adv-label">クリック間隔 (ms)</span>
+                <input id="clickIntervalMs" class="te-input" type="number" min="5" max="500" />
+                <div class="field-help">ボタン連打の間隔。初期値 30 ms。</div>
+              </div>
+              <div class="adv-field">
+                <span class="adv-label">並列実行数</span>
+                <input id="parallelTabCount" class="te-input" type="number" min="1" max="5" style="max-width: 100px" />
+                <div class="field-help">同時に実行するタブ数。初期値 1（最大 5）。</div>
+              </div>
+              <div class="adv-field">
+                <span class="adv-label">チェックボックス自動ON</span>
+                <div class="checkbox-row">
+                  <input id="requireAgreement" type="checkbox" checked />
+                  <label for="requireAgreement">フォーム内のチェックボックスをすべて自動チェック（初期値 ON）</label>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <section class="history" aria-labelledby="historyTitle">
+            <div class="history-head">
+              <h2 id="historyTitle" class="history-title">実行履歴</h2>
+              <button id="clearRunsButton" class="btn btn-secondary" type="button">履歴をクリア</button>
+            </div>
+            <div id="runsList" class="history-list" aria-live="polite">
+              <div class="history-empty">まだ実行履歴はありません。</div>
+            </div>
+          </section>
+        </div>
+      </div>
     </main>
 
     <script src="../lib/shared.js"></script>

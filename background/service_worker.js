@@ -11,7 +11,11 @@ importScripts("../lib/shared.js");
     MESSAGE_TYPES,
     STATUS,
     DEFAULT_JOB,
+    DEFAULT_PREFERENCES,
     ensureEscapeUrl,
+    ensureHttpsUrl,
+    isEscapeTicketPageUrl,
+    getErrorMessage,
     toEpoch,
     createId,
     clampInt
@@ -23,12 +27,14 @@ importScripts("../lib/shared.js");
   const TAB_LOAD_TIMEOUT_MS = 45000;
   const TAB_MESSAGE_RETRIES = 160;
   const TAB_MESSAGE_INTERVAL_MS = 250;
+  const RUN_HISTORY_LIMIT = 50;
 
   chrome.runtime.onInstalled.addListener(() => {
     void setStatus({
       state: STATUS.IDLE,
       updatedAt: Date.now()
     });
+    void ensurePreferences();
   });
 
   chrome.alarms.onAlarm.addListener((alarm) => {
@@ -37,30 +43,33 @@ importScripts("../lib/shared.js");
     });
   });
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message || !message.type) {
       return false;
     }
 
-    void handleMessage(message)
+    void handleMessage(message, sender)
       .then((result) => {
         sendResponse({ ok: true, ...result });
       })
       .catch((error) => {
         sendResponse({
           ok: false,
-          error: error.message || "Unhandled service worker error."
+          error: error.message || "Unhandled service worker error.",
+          code: error.code || ""
         });
       });
     return true;
   });
 
-  async function handleMessage(message) {
+  async function handleMessage(message, sender) {
     switch (message.type) {
       case MESSAGE_TYPES.GET_JOB:
         return handleGetJob();
       case MESSAGE_TYPES.SAVE_JOB:
-        return handleSaveJob(message.job);
+        return handleSaveJob(message.job, message);
+      case MESSAGE_TYPES.CANCEL_JOB:
+        return handleCancelJob(message);
       case MESSAGE_TYPES.GET_STATUS:
         return handleGetStatus();
       case MESSAGE_TYPES.PARSE_FORM_REQUEST:
@@ -71,6 +80,20 @@ importScripts("../lib/shared.js");
         return handleStatusUpdate(message);
       case MESSAGE_TYPES.EXECUTE_RESULT:
         return handleExecuteResult(message.result);
+      case MESSAGE_TYPES.OPEN_OPTIONS_WITH_PAGE:
+        return handleOpenOptionsWithPage(message, sender);
+      case MESSAGE_TYPES.GET_PAGE_DRAFT:
+        return handleGetPageDraft();
+      case MESSAGE_TYPES.CLEAR_PAGE_DRAFT:
+        return handleClearPageDraft();
+      case MESSAGE_TYPES.GET_RUNS:
+        return handleGetRuns();
+      case MESSAGE_TYPES.CLEAR_RUNS:
+        return handleClearRuns();
+      case MESSAGE_TYPES.GET_PREFERENCES:
+        return handleGetPreferences();
+      case MESSAGE_TYPES.SAVE_PREFERENCES:
+        return handleSavePreferences(message.preferences);
       case MESSAGE_TYPES.PING:
         return { pong: true, at: Date.now() };
       default:
@@ -83,16 +106,23 @@ importScripts("../lib/shared.js");
     return { job };
   }
 
-  async function handleSaveJob(inputJob) {
+  async function handleSaveJob(inputJob, saveOptions) {
+    const options = saveOptions || {};
+    const existingJob = await getStorageValue(STORAGE_KEYS.JOB, null);
     const sanitized = sanitizeJob(inputJob || {});
-    await setStorageValue(STORAGE_KEYS.JOB, sanitized);
+    enforceTriggerConfirmation(inputJob || {}, existingJob, sanitized);
+    enforceReplaceConfirmation(existingJob, sanitized, options);
+
     await scheduleJobAlarms(sanitized);
+    await setStorageValue(STORAGE_KEYS.JOB, sanitized);
+    await mergeAndSavePreferencesFromJob(sanitized);
+    await setStorageValue(STORAGE_KEYS.PAGE_DRAFT, null);
     await appendLog("SAVE_JOB", "Job saved and alarms scheduled.", {
       jobId: sanitized.jobId,
       triggerAtJst: sanitized.triggerAtJst
     });
     await setStatus({
-      state: STATUS.IDLE,
+      state: STATUS.WAIT_TRIGGER,
       jobId: sanitized.jobId,
       triggerAtJst: sanitized.triggerAtJst,
       updatedAt: Date.now()
@@ -100,19 +130,54 @@ importScripts("../lib/shared.js");
     return { job: sanitized };
   }
 
+  async function handleCancelJob(message) {
+    const existingJob = await getStorageValue(STORAGE_KEYS.JOB, null);
+    if (!existingJob) {
+      await clearTicketEscapeAlarms();
+      await setStatus({ state: STATUS.IDLE, updatedAt: Date.now() });
+      return { canceled: false, reason: "no-job" };
+    }
+
+    if (
+      message &&
+      message.expectedJobId &&
+      String(message.expectedJobId) !== String(existingJob.jobId || "")
+    ) {
+      throw makeCodedError("E_REPLACE_CONFIRM_REQUIRED", "Job changed before cancel.");
+    }
+
+    await clearTicketEscapeAlarms();
+    await setStorageValue(STORAGE_KEYS.JOB, null);
+    await setStorageValue(STORAGE_KEYS.DISPATCH_GUARD, null);
+    await setStatus({
+      state: STATUS.IDLE,
+      jobId: null,
+      detail: "canceled",
+      updatedAt: Date.now()
+    });
+    await appendLog("CANCEL_JOB", "Reservation canceled.", {
+      jobId: existingJob.jobId,
+      targetUrl: existingJob.targetUrl
+    });
+
+    return { canceled: true, jobId: existingJob.jobId };
+  }
+
   async function handleGetStatus() {
-    const [job, lastRun, status, alarms] = await Promise.all([
+    const [job, lastRun, status, alarms, preferences] = await Promise.all([
       getStorageValue(STORAGE_KEYS.JOB, null),
       getStorageValue(STORAGE_KEYS.LAST_RUN, null),
       getStorageValue(STORAGE_KEYS.STATUS, { state: STATUS.IDLE, updatedAt: Date.now() }),
-      getTicketEscapeAlarms()
+      getTicketEscapeAlarms(),
+      getPreferences()
     ]);
 
     return {
       job,
       lastRun,
       status,
-      alarms
+      alarms,
+      preferences
     };
   }
 
@@ -120,6 +185,9 @@ importScripts("../lib/shared.js");
     const targetUrl = ensureEscapeUrl(url);
     if (!targetUrl) {
       throw new Error("URL must be https://escape.id/*");
+    }
+    if (!isEscapeTicketPageUrl(targetUrl)) {
+      throw makeCodedError("E_URL_PARAMS_REQUIRED", "URL parameters are required.");
     }
 
     const tab = await createTargetTab(targetUrl, true);
@@ -180,6 +248,8 @@ importScripts("../lib/shared.js");
     }
 
     await setStorageValue(STORAGE_KEYS.LAST_RUN, result);
+    const snapshot = await consumeActiveRun(result.runId);
+    await appendRunRecord(result, snapshot);
     await setStatus({
       state: result.status || STATUS.FAILED,
       jobId: result.jobId || null,
@@ -193,6 +263,69 @@ importScripts("../lib/shared.js");
     });
 
     return { stored: true };
+  }
+
+  async function handleOpenOptionsWithPage(message, sender) {
+    const page = message.page || {};
+    const senderTab = (sender && sender.tab) || {};
+    const pageUrl = ensureEscapeUrl(page.url || message.url || senderTab.url);
+    // From a non-reservable page (e.g. the launcher badge on the escape.id top
+    // page) just open the console without a draft so "詳細コンソールで開く"
+    // works everywhere (§6 LAUNCHER, §9).
+    if (!pageUrl || !isEscapeTicketPageUrl(pageUrl)) {
+      const plainTab = await openOptionsPage();
+      return { draft: null, tabId: plainTab && plainTab.id };
+    }
+
+    const draft = {
+      url: pageUrl,
+      normalizedUrl: normalizeUrlForCompare(pageUrl),
+      tabId: Number.isFinite(page.tabId)
+        ? page.tabId
+        : (Number.isFinite(message.tabId)
+            ? message.tabId
+            : (Number.isFinite(senderTab.id) ? senderTab.id : null)),
+      title: String(page.title || message.title || "").slice(0, 200),
+      eventTitle: String(page.eventTitle || "").slice(0, 200),
+      detectedAt: Date.now(),
+      source: String(page.source || "content-launcher")
+    };
+
+    await setStorageValue(STORAGE_KEYS.PAGE_DRAFT, draft);
+    const tab = await openOptionsPage();
+    return { draft, tabId: tab && tab.id };
+  }
+
+  async function handleGetPageDraft() {
+    const draft = await getStorageValue(STORAGE_KEYS.PAGE_DRAFT, null);
+    return { draft };
+  }
+
+  async function handleClearPageDraft() {
+    await setStorageValue(STORAGE_KEYS.PAGE_DRAFT, null);
+    return { cleared: true };
+  }
+
+  async function handleGetRuns() {
+    const runs = await getStorageValue(STORAGE_KEYS.RUNS, []);
+    return { runs: Array.isArray(runs) ? runs : [] };
+  }
+
+  async function handleClearRuns() {
+    await setStorageValue(STORAGE_KEYS.RUNS, []);
+    return { cleared: true };
+  }
+
+  async function handleGetPreferences() {
+    const preferences = await getPreferences();
+    return { preferences };
+  }
+
+  async function handleSavePreferences(input) {
+    const preferences = sanitizePreferences(input);
+    await setStorageValue(STORAGE_KEYS.PREFERENCES, preferences);
+    await appendLog("SAVE_PREFERENCES", "Preferences saved.", preferences);
+    return { preferences };
   }
 
   async function handleAlarm(alarm) {
@@ -218,12 +351,15 @@ importScripts("../lib/shared.js");
   function sanitizeJob(input) {
     const targetUrl = ensureEscapeUrl(input.targetUrl);
     if (!targetUrl) {
-      throw new Error("Invalid targetUrl. Use https://escape.id/*");
+      throw makeCodedError("E_INVALID_URL", "Invalid targetUrl. Use https://escape.id/*");
+    }
+    if (!isEscapeTicketPageUrl(targetUrl)) {
+      throw makeCodedError("E_URL_PARAMS_REQUIRED", "URL parameters are required.");
     }
 
     const triggerEpoch = toEpoch(input.triggerAtJst);
     if (!Number.isFinite(triggerEpoch)) {
-      throw new Error("Invalid trigger time.");
+      throw makeCodedError("E_TRIGGER_CONFIRM_REQUIRED", "Invalid trigger time.");
     }
 
     const ticketPlans = Array.isArray(input.ticketPlans)
@@ -235,7 +371,12 @@ importScripts("../lib/shared.js");
           .filter((plan) => plan.ticketLabel)
       : [];
 
+    if (!ticketPlans.some((plan) => plan.targetQty > 0)) {
+      throw makeCodedError("E_TICKET_QTY_REQUIRED", "At least one ticket quantity is required.");
+    }
+
     const selectorOverrides = sanitizeSelectorOverrides(input.selectorOverrides);
+    const heroImageUrl = ensureHttpsUrl(input.heroImageUrl);
 
     return {
       jobId: String(input.jobId || createId("job")),
@@ -246,6 +387,7 @@ importScripts("../lib/shared.js");
       parallelTabCount: clampInt(input.parallelTabCount, DEFAULT_JOB.parallelTabCount, 1, 5),
       requireAgreement: input.requireAgreement !== false,
       ticketPlans,
+      ...(heroImageUrl ? { heroImageUrl } : {}),
       ...(selectorOverrides ? { selectorOverrides } : {})
     };
   }
@@ -266,23 +408,25 @@ importScripts("../lib/shared.js");
   }
 
   async function scheduleJobAlarms(job) {
-    await clearTicketEscapeAlarms();
-
     const triggerEpoch = toEpoch(job.triggerAtJst);
     if (!Number.isFinite(triggerEpoch)) {
-      throw new Error("Cannot schedule: invalid trigger time.");
+      throw makeCodedError("E_TRIGGER_CONFIRM_REQUIRED", "Cannot schedule: invalid trigger time.");
     }
 
     const now = Date.now();
     if (triggerEpoch <= now) {
-      throw new Error("Cannot schedule: trigger time is in the past.");
+      throw makeCodedError("E_TRIGGER_PAST", "Cannot schedule: trigger time is in the past.");
     }
 
+    await clearTicketEscapeAlarms();
     chrome.alarms.create(`${ALARM_TRIGGER_PREFIX}${job.jobId}`, { when: triggerEpoch });
   }
 
   async function dispatchExecution(job, options) {
     const opts = options || {};
+    if (!isEscapeTicketPageUrl(job && job.targetUrl)) {
+      throw makeCodedError("E_URL_PARAMS_REQUIRED", "URL parameters are required.");
+    }
     const guardOk = await canDispatch(job, opts.reason || "scheduled");
     if (!guardOk) {
       return { skipped: true, reason: "duplicate-guard" };
@@ -305,9 +449,14 @@ importScripts("../lib/shared.js");
     const tabs = await resolveExecutionTabs(job.targetUrl, parallelTabCount);
     await Promise.all(tabs.map((tab) => waitForTabCompleteBestEffort(tab.id, TAB_LOAD_TIMEOUT_MS)));
 
+    const dispatchTargets = tabs.map((tab) => ({
+      tab,
+      runId: createId("run")
+    }));
+    await storeActiveRuns(dispatchTargets, job, triggerEpoch);
+
     const dispatchResults = await Promise.all(
-      tabs.map(async (tab) => {
-        const runId = createId("run");
+      dispatchTargets.map(async ({ tab, runId }) => {
         try {
           const dispatchResponse = await sendMessageToTabWithRetry(
             tab.id,
@@ -324,6 +473,7 @@ importScripts("../lib/shared.js");
           if (!dispatchResponse || !dispatchResponse.ok) {
             return {
               ok: false,
+              runId,
               tabId: tab.id,
               error: (dispatchResponse && dispatchResponse.error) || "Execution dispatch rejected."
             };
@@ -337,6 +487,7 @@ importScripts("../lib/shared.js");
         } catch (error) {
           return {
             ok: false,
+            runId,
             tabId: tab.id,
             error: error && error.message ? error.message : "Execution dispatch failed."
           };
@@ -346,6 +497,9 @@ importScripts("../lib/shared.js");
 
     const successDispatches = dispatchResults.filter((result) => result.ok);
     const failedDispatches = dispatchResults.filter((result) => !result.ok);
+    if (failedDispatches.length) {
+      await removeActiveRuns(failedDispatches.map((result) => result.runId));
+    }
     if (!successDispatches.length) {
       const firstFailure = failedDispatches[0];
       throw new Error(
@@ -409,6 +563,207 @@ importScripts("../lib/shared.js");
       reason
     });
     return true;
+  }
+
+  function makeCodedError(code, fallbackMessage) {
+    const error = new Error(getErrorMessage(code, fallbackMessage));
+    error.code = code;
+    return error;
+  }
+
+  function enforceTriggerConfirmation(inputJob, existingJob, sanitizedJob) {
+    const sameJob = existingJob && existingJob.jobId === sanitizedJob.jobId;
+    const sameUrl =
+      existingJob &&
+      normalizeUrlForCompare(existingJob.targetUrl) === normalizeUrlForCompare(sanitizedJob.targetUrl);
+
+    if ((sameJob || sameUrl) && inputJob.triggerAtConfirmed !== false) {
+      return;
+    }
+
+    if (inputJob.triggerAtConfirmed === true) {
+      return;
+    }
+
+    throw makeCodedError("E_TRIGGER_CONFIRM_REQUIRED", "Trigger time must be confirmed.");
+  }
+
+  function enforceReplaceConfirmation(existingJob, sanitizedJob, options) {
+    if (!existingJob) {
+      return;
+    }
+
+    const existingUrl = normalizeUrlForCompare(existingJob.targetUrl);
+    const nextUrl = normalizeUrlForCompare(sanitizedJob.targetUrl);
+    const sameJob = existingJob.jobId === sanitizedJob.jobId;
+    const sameUrl = existingUrl && nextUrl && existingUrl === nextUrl;
+    if (sameJob || sameUrl) {
+      return;
+    }
+
+    const confirmed =
+      options.replaceConfirmed === true &&
+      String(options.expectedPreviousJobId || "") === String(existingJob.jobId || "");
+    if (confirmed) {
+      return;
+    }
+
+    throw makeCodedError("E_REPLACE_CONFIRM_REQUIRED", "Replacing the existing job requires confirmation.");
+  }
+
+  async function ensurePreferences() {
+    const stored = await getStorageValue(STORAGE_KEYS.PREFERENCES, null);
+    if (!stored) {
+      await setStorageValue(STORAGE_KEYS.PREFERENCES, { ...DEFAULT_PREFERENCES });
+    }
+  }
+
+  async function getPreferences() {
+    const stored = await getStorageValue(STORAGE_KEYS.PREFERENCES, null);
+    return sanitizePreferences(stored || DEFAULT_PREFERENCES);
+  }
+
+  function sanitizePreferences(input) {
+    const source = input && typeof input === "object" ? input : {};
+    const selectorOverrides = sanitizeSelectorOverrides(source.selectorOverrides);
+    return {
+      clickIntervalMs: clampInt(
+        source.clickIntervalMs,
+        DEFAULT_PREFERENCES.clickIntervalMs,
+        5,
+        500
+      ),
+      parallelTabCount: clampInt(
+        source.parallelTabCount,
+        DEFAULT_PREFERENCES.parallelTabCount,
+        1,
+        5
+      ),
+      requireAgreement: source.requireAgreement !== false,
+      selectorOverrides
+    };
+  }
+
+  async function mergeAndSavePreferencesFromJob(job) {
+    const current = await getPreferences();
+    const next = sanitizePreferences({
+      ...current,
+      clickIntervalMs: job.clickIntervalMs,
+      parallelTabCount: job.parallelTabCount,
+      requireAgreement: job.requireAgreement,
+      selectorOverrides: job.selectorOverrides || current.selectorOverrides || null
+    });
+    await setStorageValue(STORAGE_KEYS.PREFERENCES, next);
+    return next;
+  }
+
+  async function storeActiveRuns(targets, job, triggerEpoch) {
+    const activeRuns = await getStorageValue(STORAGE_KEYS.ACTIVE_RUNS, {});
+    const next = activeRuns && typeof activeRuns === "object" ? { ...activeRuns } : {};
+    for (const target of targets) {
+      next[target.runId] = {
+        jobSnapshot: cloneJson(job),
+        triggerEpoch,
+        dispatchedAt: Date.now(),
+        tabId: target.tab && target.tab.id
+      };
+    }
+    await setStorageValue(STORAGE_KEYS.ACTIVE_RUNS, next);
+  }
+
+  async function consumeActiveRun(runId) {
+    if (!runId) {
+      return null;
+    }
+    const activeRuns = await getStorageValue(STORAGE_KEYS.ACTIVE_RUNS, {});
+    if (!activeRuns || typeof activeRuns !== "object" || !activeRuns[runId]) {
+      return null;
+    }
+    const snapshot = activeRuns[runId];
+    const next = { ...activeRuns };
+    delete next[runId];
+    await setStorageValue(STORAGE_KEYS.ACTIVE_RUNS, next);
+    return snapshot;
+  }
+
+  async function removeActiveRun(runId) {
+    if (!runId) {
+      return;
+    }
+    const activeRuns = await getStorageValue(STORAGE_KEYS.ACTIVE_RUNS, {});
+    if (!activeRuns || typeof activeRuns !== "object" || !activeRuns[runId]) {
+      return;
+    }
+    const next = { ...activeRuns };
+    delete next[runId];
+    await setStorageValue(STORAGE_KEYS.ACTIVE_RUNS, next);
+  }
+
+  async function removeActiveRuns(runIds) {
+    const ids = Array.isArray(runIds) ? runIds.filter(Boolean) : [];
+    if (!ids.length) {
+      return;
+    }
+    const activeRuns = await getStorageValue(STORAGE_KEYS.ACTIVE_RUNS, {});
+    if (!activeRuns || typeof activeRuns !== "object") {
+      return;
+    }
+    const next = { ...activeRuns };
+    for (const runId of ids) {
+      delete next[runId];
+    }
+    await setStorageValue(STORAGE_KEYS.ACTIVE_RUNS, next);
+  }
+
+  async function appendRunRecord(result, activeSnapshot) {
+    const runs = await getStorageValue(STORAGE_KEYS.RUNS, []);
+    const next = Array.isArray(runs) ? runs.slice() : [];
+    const jobSnapshot = activeSnapshot && activeSnapshot.jobSnapshot ? activeSnapshot.jobSnapshot : null;
+    const record = toRunRecord(result, jobSnapshot, activeSnapshot);
+    next.unshift(record);
+    while (next.length > RUN_HISTORY_LIMIT) {
+      next.pop();
+    }
+    await setStorageValue(STORAGE_KEYS.RUNS, next);
+  }
+
+  function toRunRecord(result, jobSnapshot, activeSnapshot) {
+    const job = jobSnapshot || {};
+    return {
+      runId: String(result.runId || ""),
+      jobId: String(result.jobId || job.jobId || ""),
+      eventTitle: String(job.eventTitle || ""),
+      targetUrl: String(job.targetUrl || result.pageUrl || ""),
+      heroImageUrl: ensureHttpsUrl(job.heroImageUrl),
+      ticketPlans: Array.isArray(job.ticketPlans) ? cloneJson(job.ticketPlans) : [],
+      triggerAtJst: String(job.triggerAtJst || ""),
+      status: result.status || STATUS.FAILED,
+      errorCode: result.errorCode || null,
+      errorDetail: result.errorDetail || null,
+      steps: Array.isArray(result.steps) ? cloneJson(result.steps) : [],
+      startedAt: result.startedAt || (activeSnapshot && activeSnapshot.dispatchedAt) || null,
+      finishedAt: result.finishedAt || Date.now(),
+      pageUrl: String(result.pageUrl || ""),
+      tabId: activeSnapshot && Number.isFinite(activeSnapshot.tabId) ? activeSnapshot.tabId : null
+    };
+  }
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value || null));
+  }
+
+  async function openOptionsPage() {
+    const optionsUrl = chrome.runtime.getURL("options/options.html");
+    const existing = await tabQuery({ url: optionsUrl });
+    if (existing && existing.length) {
+      const tab = existing[0];
+      const updated = await tabUpdate(tab.id, { active: true });
+      if (typeof tab.windowId === "number") {
+        await windowUpdate(tab.windowId, { focused: true });
+      }
+      return updated || tab;
+    }
+    return tabCreate({ url: optionsUrl, active: true });
   }
 
   async function appendLog(phase, message, meta) {
@@ -643,6 +998,32 @@ importScripts("../lib/shared.js");
           return;
         }
         resolve(tab);
+      });
+    });
+  }
+
+  function tabUpdate(tabId, updateProperties) {
+    return new Promise((resolve, reject) => {
+      chrome.tabs.update(tabId, updateProperties, (tab) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve(tab);
+      });
+    });
+  }
+
+  function windowUpdate(windowId, updateInfo) {
+    return new Promise((resolve, reject) => {
+      chrome.windows.update(windowId, updateInfo, (win) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve(win);
       });
     });
   }
