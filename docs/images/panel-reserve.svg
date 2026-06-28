@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="470" viewBox="0 0 860 470" font-family="-apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif">
+  <rect width="860" height="470" rx="14" fill="#f5f6f8"/>
+
+  <!-- escape.id page (left, dimmed) -->
+  <rect x="24" y="24" width="430" height="422" rx="12" fill="#ffffff" stroke="#d8dbe0" stroke-width="1.5"/>
+  <rect x="24" y="24" width="430" height="40" rx="12" fill="#eceef1"/>
+  <rect x="24" y="52" width="430" height="12" fill="#eceef1"/>
+  <rect x="120" y="34" width="300" height="20" rx="10" fill="#ffffff" stroke="#d8dbe0"/>
+  <text x="134" y="48" font-size="12" fill="#5b6470">https://escape.id/･･･/公演ページ</text>
+  <rect x="56" y="92" width="366" height="120" rx="8" fill="#eef1f4"/>
+  <text x="239" y="158" font-size="13" fill="#aab1bb" text-anchor="middle">公演のメインビジュアル</text>
+  <rect x="56" y="232" width="220" height="16" rx="4" fill="#e2e5ea"/>
+  <rect x="56" y="262" width="300" height="12" rx="4" fill="#eef1f4"/>
+  <rect x="56" y="284" width="260" height="12" rx="4" fill="#eef1f4"/>
+  <text x="239" y="400" font-size="12" fill="#9aa1ac" text-anchor="middle">escape.id の購入ページを開くと…</text>
+
+  <!-- TE panel (right) -->
+  <rect x="486" y="40" width="350" height="394" rx="16" fill="#15181d" stroke="#2a2f37" stroke-width="1.5"/>
+  <text x="512" y="76" font-size="14" fill="#ffffff" font-weight="700">🎟️ TicketEscape</text>
+  <text x="810" y="76" font-size="13" fill="#7a828d" text-anchor="end">✕</text>
+
+  <text x="512" y="106" font-size="11.5" fill="#8b94a0">公演情報（自動で読み取り）</text>
+  <rect x="512" y="116" width="298" height="40" rx="8" fill="#1f242b"/>
+  <text x="528" y="141" font-size="13.5" fill="#e8ebef" font-weight="600">〇〇 LIVE TOUR 2026</text>
+
+  <!-- quantity -->
+  <text x="512" y="186" font-size="11.5" fill="#8b94a0">枚数</text>
+  <rect x="512" y="196" width="298" height="44" rx="8" fill="#1f242b"/>
+  <text x="528" y="223" font-size="13" fill="#e8ebef">一般チケット</text>
+  <circle cx="700" cy="218" r="15" fill="#2a2f37"/>
+  <text x="700" y="224" font-size="18" fill="#e8ebef" text-anchor="middle">−</text>
+  <text x="743" y="224" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700">2</text>
+  <circle cx="786" cy="218" r="15" fill="#2a2f37"/>
+  <text x="786" y="224" font-size="18" fill="#e8ebef" text-anchor="middle">＋</text>
+  <g>
+    <circle cx="512" cy="218" r="12" fill="#4c8dff"/>
+    <text x="512" y="223" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="700">1</text>
+  </g>
+
+  <!-- time -->
+  <text x="512" y="270" font-size="11.5" fill="#8b94a0">実行時刻（日本時間）</text>
+  <rect x="512" y="280" width="298" height="40" rx="8" fill="#1f242b"/>
+  <text x="528" y="305" font-size="13.5" fill="#e8ebef">2026/07/01 10:00</text>
+  <g>
+    <circle cx="512" cy="300" r="12" fill="#4c8dff"/>
+    <text x="512" y="305" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="700">2</text>
+  </g>
+
+  <!-- reserve button -->
+  <rect x="512" y="346" width="298" height="48" rx="10" fill="#4c8dff"/>
+  <text x="661" y="376" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700">このページを予約する</text>
+  <g>
+    <circle cx="512" cy="370" r="12" fill="#28c840"/>
+    <text x="512" y="375" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="700">3</text>
+  </g>
+  <text x="661" y="418" font-size="11" fill="#8b94a0" text-anchor="middle">指定時刻にこのページを開き、選んだ数量でカート投入します</text>
+</svg>

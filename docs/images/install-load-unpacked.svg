@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="430" viewBox="0 0 860 430" font-family="-apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif">
+  <rect width="860" height="430" rx="14" fill="#f5f6f8"/>
+  <!-- browser window -->
+  <rect x="24" y="24" width="812" height="382" rx="12" fill="#ffffff" stroke="#d8dbe0" stroke-width="1.5"/>
+  <!-- title bar -->
+  <rect x="24" y="24" width="812" height="46" rx="12" fill="#eceef1"/>
+  <rect x="24" y="58" width="812" height="12" fill="#eceef1"/>
+  <circle cx="48" cy="47" r="6" fill="#ff5f57"/>
+  <circle cx="68" cy="47" r="6" fill="#febc2e"/>
+  <circle cx="88" cy="47" r="6" fill="#28c840"/>
+  <rect x="118" y="36" width="430" height="22" rx="11" fill="#ffffff" stroke="#d8dbe0"/>
+  <text x="134" y="51" font-size="13" fill="#5b6470">chrome://extensions</text>
+
+  <!-- developer mode toggle -->
+  <text x="640" y="104" font-size="13" fill="#3c4250">デベロッパー モード</text>
+  <rect x="784" y="92" width="40" height="22" rx="11" fill="#1a73e8"/>
+  <circle cx="813" cy="103" r="8" fill="#ffffff"/>
+  <g>
+    <circle cx="612" cy="103" r="13" fill="#1a73e8"/>
+    <text x="612" y="108" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700">2</text>
+  </g>
+  <text x="612" y="138" font-size="11.5" fill="#1a73e8" text-anchor="middle" font-weight="600">まず ON にする</text>
+
+  <!-- load unpacked button -->
+  <rect x="56" y="150" width="232" height="40" rx="8" fill="#ffffff" stroke="#1a73e8" stroke-width="1.5"/>
+  <text x="172" y="175" font-size="13.5" fill="#1a73e8" text-anchor="middle" font-weight="600">パッケージ化されていない拡張機能を読み込む</text>
+  <g>
+    <circle cx="56" cy="150" r="13" fill="#1a73e8"/>
+    <text x="56" y="155" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700">3</text>
+  </g>
+
+  <!-- extension card -->
+  <rect x="56" y="220" width="360" height="150" rx="10" fill="#ffffff" stroke="#e2e5ea" stroke-width="1.5"/>
+  <rect x="76" y="242" width="44" height="44" rx="10" fill="#111418"/>
+  <text x="98" y="271" font-size="22" text-anchor="middle">🎟️</text>
+  <text x="136" y="258" font-size="16" fill="#1f2329" font-weight="700">TicketEscape</text>
+  <text x="136" y="280" font-size="12" fill="#7a828d">指定時刻に自動でカート投入</text>
+  <rect x="76" y="320" width="80" height="16" rx="4" fill="#eef1f4"/>
+  <text x="116" y="332" font-size="10.5" fill="#7a828d" text-anchor="middle">詳細</text>
+  <rect x="320" y="316" width="40" height="22" rx="11" fill="#1a73e8"/>
+  <circle cx="349" cy="327" r="8" fill="#ffffff"/>
+  <g>
+    <circle cx="416" cy="220" r="13" fill="#28a745"/>
+    <text x="416" y="225" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700">4</text>
+  </g>
+  <text x="436" y="225" font-size="12.5" fill="#28a745" font-weight="600">この行が出れば成功</text>
+
+  <!-- folder hint -->
+  <rect x="468" y="220" width="344" height="150" rx="10" fill="#fffaf0" stroke="#f0d9a8" stroke-width="1.5"/>
+  <text x="488" y="252" font-size="13.5" fill="#9a6a00" font-weight="700">選ぶフォルダはここ 📁</text>
+  <text x="488" y="282" font-size="12.5" fill="#6b5a30">manifest.json が「直接見える」</text>
+  <text x="488" y="304" font-size="12.5" fill="#6b5a30">フォルダを選びます。</text>
+  <text x="488" y="334" font-size="12" fill="#b14b3a">✕ ひとつ上の階層を選ぶと失敗</text>
+  <text x="488" y="354" font-size="12" fill="#b14b3a">✕ ZIPのままだと読み込めません</text>
+</svg>
