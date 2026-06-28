@@ -188,7 +188,7 @@ importScripts("../lib/shared.js");
       throw new Error("URL must be https://escape.id/*");
     }
     if (!isEscapeTicketPageUrl(targetUrl)) {
-      throw makeCodedError("E_URL_PARAMS_REQUIRED", "URL parameters are required.");
+      throw makeCodedError("E_TICKET_PAGE_REQUIRED", "An escape.id ticket page URL is required.");
     }
 
     const tab = await createTargetTab(targetUrl, true);
@@ -281,11 +281,6 @@ importScripts("../lib/shared.js");
     const draft = {
       url: pageUrl,
       normalizedUrl: normalizeUrlForCompare(pageUrl),
-      tabId: Number.isFinite(page.tabId)
-        ? page.tabId
-        : (Number.isFinite(message.tabId)
-            ? message.tabId
-            : (Number.isFinite(senderTab.id) ? senderTab.id : null)),
       title: String(page.title || message.title || "").slice(0, 200),
       eventTitle: String(page.eventTitle || "").slice(0, 200),
       detectedAt: Date.now(),
@@ -404,7 +399,7 @@ importScripts("../lib/shared.js");
       throw makeCodedError("E_INVALID_URL", "Invalid targetUrl. Use https://escape.id/*");
     }
     if (!isEscapeTicketPageUrl(targetUrl)) {
-      throw makeCodedError("E_URL_PARAMS_REQUIRED", "URL parameters are required.");
+      throw makeCodedError("E_TICKET_PAGE_REQUIRED", "An escape.id ticket page URL is required.");
     }
 
     const triggerAtJst = normalizeJstIsoToMinute(input.triggerAtJst);
@@ -456,6 +451,9 @@ importScripts("../lib/shared.js");
     if (input.submitButton) {
       next.submitButton = String(input.submitButton).trim();
     }
+    if (input.heroImage) {
+      next.heroImage = String(input.heroImage).trim();
+    }
     return Object.keys(next).length ? next : null;
   }
 
@@ -477,7 +475,7 @@ importScripts("../lib/shared.js");
   async function dispatchExecution(job, options) {
     const opts = options || {};
     if (!isEscapeTicketPageUrl(job && job.targetUrl)) {
-      throw makeCodedError("E_URL_PARAMS_REQUIRED", "URL parameters are required.");
+      throw makeCodedError("E_TICKET_PAGE_REQUIRED", "An escape.id ticket page URL is required.");
     }
     const guardOk = await canDispatch(job, opts.reason || "scheduled");
     if (!guardOk) {

@@ -26,7 +26,6 @@
     '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>';
 
   const ARM_NOTE_DEFAULT = "設定を確認したら押してください。この画面は開いたままにします。";
-  const ALARM_PREFIXES = ["te_warmup_", "te_trigger_"];
   const PAGE_DRAFT_MAX_AGE_MS = 10 * 60 * 1000;
 
   const state = {
@@ -487,7 +486,7 @@
       return;
     }
     if (!isEscapeTicketPageUrl(targetUrl)) {
-      setStatus(getErrorMessage("E_URL_PARAMS_REQUIRED"));
+      setStatus(getErrorMessage("E_TICKET_PAGE_REQUIRED"));
       updateConfirmAttention();
       return;
     }
@@ -496,7 +495,8 @@
     try {
       const response = await sendMessage({
         type: MESSAGE_TYPES.PARSE_FORM_REQUEST,
-        url: targetUrl
+        url: targetUrl,
+        selectorOverrides: state.preferences.selectorOverrides || {}
       });
 
       if (!response.ok) {
@@ -538,7 +538,7 @@
       return;
     }
     if (!isEscapeTicketPageUrl(targetUrl)) {
-      setStatus(getErrorMessage("E_URL_PARAMS_REQUIRED"));
+      setStatus(getErrorMessage("E_TICKET_PAGE_REQUIRED"));
       return;
     }
 
@@ -636,34 +636,44 @@
     setStatus("予約を取り消し中...");
 
     try {
-      await clearStoredReservationFromOptions();
+      // Re-read the live job so cancel always targets the currently-stored
+      // reservation, then let the service worker be the single writer that
+      // clears storage and alarms (same path as popup / content panel).
+      let liveJob = state.loadedJob || state.liveJob;
+      try {
+        const jobResponse = await sendMessage({ type: MESSAGE_TYPES.GET_JOB });
+        if (jobResponse.ok) {
+          liveJob = jobResponse.job || null;
+        }
+      } catch (_) {
+        // Fall back to the locally loaded snapshot.
+      }
+
+      if (!liveJob || !liveJob.jobId) {
+        clearReservationUiAfterCancel();
+        setStatus("予約はありません。");
+        await loadSavedJob({ populateWizard: false, silent: true });
+        return;
+      }
+
+      const response = await sendMessage({
+        type: MESSAGE_TYPES.CANCEL_JOB,
+        expectedJobId: liveJob.jobId
+      });
+      if (!response.ok) {
+        throw new Error(formatResponseError(response));
+      }
+
       clearReservationUiAfterCancel();
       setStatus("予約を取り消しました。");
-      void sendMessage({ type: MESSAGE_TYPES.CANCEL_JOB }).catch(() => {
-        // Storage has already been cleared by this page.
-      });
       await loadSavedJob({ populateWizard: false, silent: true });
     } catch (error) {
       if (isExtensionContextInvalidatedError(error)) {
         reloadStaleOptionsPage();
         return;
       }
-      try {
-        const response = await sendMessage({ type: MESSAGE_TYPES.CANCEL_JOB });
-        if (!response.ok) {
-          throw new Error(formatResponseError(response));
-        }
-        clearReservationUiAfterCancel();
-        setStatus("予約を取り消しました。");
-        await loadSavedJob({ populateWizard: false, silent: true });
-      } catch (fallbackError) {
-        if (isExtensionContextInvalidatedError(fallbackError)) {
-          reloadStaleOptionsPage();
-          return;
-        }
-        state.elements.crCancelButton.disabled = false;
-        setStatus(`予約取り消し失敗: ${fallbackError.message || error.message}`);
-      }
+      state.elements.crCancelButton.disabled = false;
+      setStatus(`予約取り消し失敗: ${error.message}`);
     } finally {
       state.cancelInFlight = false;
     }
@@ -700,88 +710,11 @@
     updateStepStates();
   }
 
-  async function clearStoredReservationFromOptions() {
-    await removeLocalStorageKeys([
-      STORAGE_KEYS.JOB,
-      STORAGE_KEYS.DISPATCH_GUARD,
-      STORAGE_KEYS.PAGE_DRAFT
-    ]);
-    await setLocalStorageValues({
-      [STORAGE_KEYS.STATUS]: {
-        state: STATUS.IDLE,
-        jobId: null,
-        detail: "canceled",
-        updatedAt: Date.now()
-      }
-    });
-    try {
-      await clearTicketEscapeAlarmsFromOptions();
-    } catch (_) {
-      // With no stored job, a leftover alarm is harmless; the worker exits early.
-    }
-  }
-
   async function clearPageDraft() {
     state.pageDraft = null;
     await removeLocalStorageKeys([STORAGE_KEYS.PAGE_DRAFT]);
     void sendMessage({ type: MESSAGE_TYPES.CLEAR_PAGE_DRAFT }).catch(() => {
       // The local draft key has already been removed.
-    });
-  }
-
-  function clearTicketEscapeAlarmsFromOptions() {
-    if (!chrome.alarms || typeof chrome.alarms.getAll !== "function") {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      chrome.alarms.getAll((alarms) => {
-        const error = chrome.runtime.lastError;
-        if (error) {
-          reject(new Error(error.message));
-          return;
-        }
-
-        const targets = (alarms || [])
-          .map((alarm) => String(alarm.name || ""))
-          .filter((name) => ALARM_PREFIXES.some((prefix) => name.startsWith(prefix)));
-        if (!targets.length) {
-          resolve();
-          return;
-        }
-
-        let pending = targets.length;
-        let failed = null;
-        for (const name of targets) {
-          chrome.alarms.clear(name, () => {
-            const clearError = chrome.runtime.lastError;
-            if (clearError && !failed) {
-              failed = new Error(clearError.message);
-            }
-            pending -= 1;
-            if (pending === 0) {
-              if (failed) {
-                reject(failed);
-              } else {
-                resolve();
-              }
-            }
-          });
-        }
-      });
-    });
-  }
-
-  function setLocalStorageValues(values) {
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.set(values, () => {
-        const error = chrome.runtime.lastError;
-        if (error) {
-          reject(new Error(error.message));
-          return;
-        }
-        resolve();
-      });
     });
   }
 

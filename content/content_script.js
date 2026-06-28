@@ -197,7 +197,7 @@
       triggerConfirmed: false,
       error: "",
       dismissed: false,
-      paramWarning: false,
+      pageWarning: false,
       launcherExpanded: false,
       pageStateKey: ""
     };
@@ -544,7 +544,7 @@
 
       const previousMode = state.mode;
       state.pageStateKey = nextPageStateKey;
-      state.paramWarning = false;
+      state.pageWarning = false;
       if (previousMode !== "launcher") {
         state.launcherExpanded = false;
       }
@@ -593,11 +593,11 @@
 
     async function readTickets() {
       if (!canReadCurrentPage()) {
-        state.paramWarning = true;
+        state.pageWarning = true;
         render();
         return;
       }
-      state.paramWarning = false;
+      state.pageWarning = false;
       state.pageStateKey = currentPageStateKey();
       state.mode = "reading";
       state.error = "";
@@ -646,7 +646,7 @@
       const triggerAtJst = toJstIsoStringFromDatetimeLocal(state.triggerAtLocal);
       if (!targetUrl || !canReadCurrentPage() || !triggerAtJst || !state.triggerConfirmed) {
         if (targetUrl && !canReadCurrentPage()) {
-          state.error = getErrorMessage("E_URL_PARAMS_REQUIRED");
+          state.error = getErrorMessage("E_TICKET_PAGE_REQUIRED");
           render();
         }
         return;
@@ -857,7 +857,7 @@
         <span class="status">READY</span>
         <div class="title">このページを予約できます</div>
         <div class="muted">指定時刻にこのページを開き、選んだ数量でカート投入します。</div>
-        ${state.paramWarning ? `<div class="note warn">${escapeHtml(getErrorMessage("E_URL_PARAMS_REQUIRED"))}</div>` : ""}
+        ${state.pageWarning ? `<div class="note warn">${escapeHtml(getErrorMessage("E_TICKET_PAGE_REQUIRED"))}</div>` : ""}
         <button class="btn" type="button" data-action="read">このチケットを予約する</button>
         <button class="btn secondary" type="button" data-action="cancel" ${state.job ? "" : "disabled"}>予約取り消し</button>
         <button class="btn secondary" type="button" data-action="details">詳細コンソールで開く</button>

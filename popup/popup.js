@@ -88,7 +88,6 @@
           type: MESSAGE_TYPES.OPEN_OPTIONS_WITH_PAGE,
           page: {
             url: activeTab.url,
-            tabId: activeTab.id,
             title: activeTab.title || "",
             source: "popup"
           }
