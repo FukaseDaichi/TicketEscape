@@ -1,6 +1,8 @@
 # Ticket Page Entry UX Design
 
 > **先行案・背景資料**: 本書は初期のUX案。**現在の正式方針は3パターン設計**（[reservation-entry-points-overview.md](reservation-entry-points-overview.md)・[pattern-1-in-page-reservation-design.md](pattern-1-in-page-reservation-design.md)・[3-pattern-sync-redesign-design.md](3-pattern-sync-redesign-design.md)）。矛盾する場合はそちらが正。特に表示ゲート（escape.id 配下なら常時表示）と状態モデル（ARMED / OTHER_RESERVED / READY / LAUNCHER）は本書より新方針が優先。
+>
+> **現行実装との差分**: パターン1は「起動パネルからオプション画面へ」ではなく、ページ内パネルだけで読み取り・数量設定・予約まで完結する。詳細コンソールの読み取りは `PAGE_DRAFT.tabId` を使った元タブ直送ではなく、SW の `PARSE_FORM_REQUEST`（URL読み取り）経路を使う。既存予約がある状態で詳細コンソールを開いた場合、ドラフトは破棄されライブ予約が優先される。詳細は [current-implementation-review.md](current-implementation-review.md)。
 
 ## 目的
 
@@ -278,9 +280,9 @@ CLEAR_PAGE_DRAFT: "TE_CLEAR_PAGE_DRAFT"
 | `OPEN_OPTIONS_WITH_PAGE` | content | background | 現在ページをドラフト保存して設定画面を開く |
 | `GET_PAGE_DRAFT` | options | background | 起動時にドラフトを取得する |
 | `CLEAR_PAGE_DRAFT` | options | background | ジョブ保存後やURL手動変更時にドラフトを破棄する |
-現在タブからの直接読み取りは廃止する。読み取りはページ内パネルで直接行うか、詳細コンソールの `PARSE_FORM_REQUEST` でURLから行う。
+現在タブからの直接読み取りは、ページ内パネルでは content script 内の直接呼び出しとして実装されている。詳細コンソールでは `PARSE_FORM_REQUEST` でURLから読み取る。
 
-### タブ再利用の方針
+### タブ再利用の方針（旧案）
 
 ページ起点で開いた直後に `情報を読み取る` を押した場合、すでにそのページは開いている。新規タブを増やすより、元タブへ `PARSE_FORM_REQUEST` を送るほうが自然。
 
@@ -291,6 +293,8 @@ CLEAR_PAGE_DRAFT: "TE_CLEAR_PAGE_DRAFT"
 3. 見つからなければ現行どおり URL を新規タブで開いて読み取り
 
 これにより、ユーザーが見ているページと設定画面の内容がずれにくくなる。
+
+> 現行実装ではこの優先順位は未採用。`PAGE_DRAFT.tabId` は保存されるが、詳細コンソールの `parseForm()` は URL だけを SW に渡し、SW が対象 URL のタブを開いて読み取る。
 
 ## UI状態モデル
 
@@ -306,6 +310,8 @@ CLEAR_PAGE_DRAFT: "TE_CLEAR_PAGE_DRAFT"
 | `DISMISSED` | ユーザーが閉じた | 小さなバッジのみ | 再表示 |
 
 `DISMISSED` はタブ単位でよい。永続保存すると、次回の本番ページで気づけないリスクがある。
+
+> 現行の正式状態名は [pattern-1-in-page-reservation-design.md](pattern-1-in-page-reservation-design.md) の `ARMED` / `OTHER_RESERVED` / `OTHER_RESERVED_VIEW` / `READY` / `FORM` / `LAUNCHER`。また、日付選択などのURL/フォーム変化は polling と `popstate` / `hashchange` で追従する。
 
 ### オプション画面
 
@@ -427,11 +433,13 @@ TicketEscape
 - `このページを予約対象にする` 押下で `OPEN_OPTIONS_WITH_PAGE` を送る。
 - background がドラフト保存後、既存オプションタブをフォーカスまたは新規作成する。
 
-### Phase 3: 元タブからの直接読み取り
+### Phase 3: 元タブからの直接読み取り（未採用案）
 
 - `PAGE_DRAFT.tabId` を使って、元タブへ `PARSE_FORM_REQUEST` を送る。
 - URLが変わっていた場合は既存の URL 読み取りへフォールバックする。
 - 読み取り結果を現行 `parseForm()` と同じ経路で `eventTitle` / `planRows` へ反映する。
+
+現行実装では、ページ内パネルは自分のページで直接読み取り、詳細コンソールは SW の URL 読み取り経路を使う。
 
 ### Phase 4: 保存済みジョブとの同期
 

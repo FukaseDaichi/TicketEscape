@@ -681,6 +681,7 @@
         clickIntervalMs: state.preferences.clickIntervalMs || DEFAULT_JOB.clickIntervalMs,
         parallelTabCount: state.preferences.parallelTabCount || DEFAULT_JOB.parallelTabCount,
         requireAgreement: state.preferences.requireAgreement !== false,
+        autoSelectRequiredOptions: state.preferences.autoSelectRequiredOptions !== false,
         ticketPlans: state.tickets.map((ticket) => ({
           ticketLabel: ticket.ticketLabel,
           targetQty: Number.parseInt(ticket.targetQty, 10) || 0
@@ -829,7 +830,7 @@
           </div>
           <div class="field">
             <div class="label">実行時刻 (JST)</div>
-            <input class="input" data-field="trigger" type="datetime-local" step="1" value="${escapeHtml(state.triggerAtLocal)}" />
+            <input class="input" data-field="trigger" type="datetime-local" value="${escapeHtml(state.triggerAtLocal)}" />
           </div>
           ${state.error ? `<div class="note warn">${escapeHtml(state.error)}</div>` : ""}
           <div id="tePanelNote" class="note"></div>
@@ -1010,6 +1011,9 @@
 
       addStep(STATUS.PREPARE_TICKETS, "Adjusting ticket quantities");
       await applyTicketPlan(ticketRows, job.ticketPlans || [], job.clickIntervalMs || 30);
+
+      addStep(STATUS.PREPARE_TICKETS, "Selecting required dropdown options");
+      await ensureRequiredSelectOptions(form, job.autoSelectRequiredOptions !== false);
 
       addStep(STATUS.PREPARE_TICKETS, "Checking all checkboxes in form");
       await ensureAgreementChecks(form, job.requireAgreement !== false);
@@ -1449,6 +1453,112 @@
         return;
       }
       await sleepWithContextCheck(WAIT_INTERVAL_MS);
+    }
+  }
+
+  async function ensureRequiredSelectOptions(form, autoSelectRequiredOptions) {
+    if (!autoSelectRequiredOptions) {
+      return;
+    }
+
+    const selects = Array.from(
+      form.querySelectorAll("select[required], select[aria-required='true']")
+    );
+
+    for (const select of selects) {
+      if (select.disabled || isRequiredSelectSatisfied(select)) {
+        continue;
+      }
+
+      const option = findFirstSelectableOption(select);
+      if (!option) {
+        throw makeError(
+          "E_REQUIRED_SELECT_NOT_SELECTED",
+          "No selectable option found for required select."
+        );
+      }
+
+      setSelectToOption(select, option);
+      select.dispatchEvent(new Event("input", { bubbles: true }));
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await sleepWithContextCheck(15);
+
+      if (document.contains(select) && !isRequiredSelectSatisfied(select)) {
+        throw makeError(
+          "E_REQUIRED_SELECT_NOT_SELECTED",
+          "Failed to select required dropdown option."
+        );
+      }
+    }
+  }
+
+  function isRequiredSelectSatisfied(select) {
+    const options = Array.from(select.options || []);
+    if (select.multiple) {
+      return Array.from(select.selectedOptions || []).some((option) => {
+        const index = options.indexOf(option);
+        return isSelectableOption(option, index);
+      });
+    }
+
+    const selectedIndex = Number.parseInt(select.selectedIndex, 10);
+    if (selectedIndex < 0) {
+      return false;
+    }
+    return isSelectableOption(options[selectedIndex], selectedIndex);
+  }
+
+  function findFirstSelectableOption(select) {
+    return Array.from(select.options || []).find((option, index) =>
+      isSelectableOption(option, index)
+    ) || null;
+  }
+
+  function isSelectableOption(option, index) {
+    if (!option || option.disabled || option.hidden) {
+      return false;
+    }
+
+    const value = String(option.value || "").trim();
+    if (!value) {
+      return false;
+    }
+
+    if (index === 0 && isPlaceholderOption(option)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function isPlaceholderOption(option) {
+    const text = normalizeLabel(option.textContent || option.label || "");
+    if (!text) {
+      return true;
+    }
+    return (
+      /選択してください|選択して下さい|選んでください|選んで下さい|指定してください|未選択|pleaseselect|choose/i.test(text) ||
+      /^(選択|select|[-ー]+)$/i.test(text)
+    );
+  }
+
+  function setSelectToOption(select, option) {
+    if (select.multiple) {
+      option.selected = true;
+      return;
+    }
+
+    const valueSetter =
+      globalScope.HTMLSelectElement &&
+      Object.getOwnPropertyDescriptor(globalScope.HTMLSelectElement.prototype, "value");
+    if (valueSetter && typeof valueSetter.set === "function") {
+      valueSetter.set.call(select, option.value);
+    } else {
+      select.value = option.value;
+    }
+
+    if (select.value !== option.value) {
+      select.selectedIndex = option.index;
     }
   }
 

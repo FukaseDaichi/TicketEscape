@@ -1,6 +1,8 @@
 # パターン3: 詳細コンソール（設計書）
 
 > 共通基盤は [reservation-entry-points-overview.md](reservation-entry-points-overview.md) を参照。土台は**現行のオプション画面（縦型ガイド）**＝ [options/options.html](../options/options.html) / [options/options.js](../options/options.js)。本パターンはこれを「**今の体験を残したまま**」拡張する。
+>
+> **実装確認メモ**: 現行実装ではライブ予約カードは予約なしでも常時表示される。取り消しは options 側で storage/alarm を直接 clear してから `CANCEL_JOB` を送る経路で、SW 単一経路とは異なる。詳細は [current-implementation-review.md](current-implementation-review.md) を参照。
 
 ## 1. 目的
 
@@ -22,12 +24,12 @@
 
 ## 3. 画面構成（現行＋履歴）
 
-intro 直後（Step1 の前）に live job 直結の **「現在の予約」カード**（公演メインビジュアル・公演名・実行日時・券種・カウントダウン・予約取り消し）を置く。ウィザードのフォーム状態やページドラフトに左右されず、ここから常に取り消せる（§8）。現行の縦型ガイドの**末尾**に「実行履歴」を追加する。READOUT（現在状況）は残し、その下に履歴。
+intro 直後（Step1 の前）に live job 直結の **「現在の予約」カード**（公演メインビジュアル・公演名・実行日時・券種・カウントダウン・予約取り消し）を置く。予約がない場合も空状態カードを表示し、他入口の操作が反映される場所を固定する。ウィザードのフォーム状態やページドラフトに左右されず、ここから常に取り消せる（§8）。現行の縦型ガイドの横に「状態と履歴」カラムを置き、READOUT・詳細設定・実行履歴をまとめる。
 
 ```
 [sticky bar]  TicketEscape CONSOLE     ● STANDBY  00:11:36
  ┌ 現在の予約 ───────────────── ● STANDBY ┐
- │ [画像] 公演名 / 実行 2026-06-27 22:00:00 │
+ │ [画像] 公演名 / 実行 6月27日22時00分 │
  │        一般×2 学生×1        00:11:36     │
  │ [ 予約取り消し ]                          │
  └───────────────────────────────────────────┘
@@ -55,11 +57,12 @@ intro 直後（Step1 の前）に live job 直結の **「現在の予約」カ�
 
 ## 4. データモデル（履歴）
 
-新規ストレージ `te_runs_v1`（[overview §3](reservation-entry-points-overview.md)）。`EXECUTE_RESULT` 受信時に append（先頭が新しい・上限50）。`te_last_run_v1` の上書きは互換のため併用。履歴には、実行完了時点の現在jobではなく、**dispatch時点の job snapshot** を保存する。
+新規ストレージ `te_runs_v1`（[overview §3](reservation-entry-points-overview.md)）。`EXECUTE_RESULT` 受信時に append（先頭が新しい・上限50）。`te_last_run_v1` の上書きは互換のため併用。履歴には、実行完了時点の現在jobではなく、**dispatch時点の job snapshot** を保存する。現行実装は `runId` 単位の履歴なので、並列実行数が2以上の場合は同じ予約から複数履歴が追加されうる。
 
 ```js
 RunRecord = {
   runId, jobId, eventTitle, targetUrl,
+  heroImageUrl,
   ticketPlans: [{ ticketLabel, targetQty }],
   triggerAtJst,
   status: "SUCCESS" | "FAILED",
@@ -105,7 +108,7 @@ async function handleExecuteResult(result) {
 | フォーム内チェックボックス自動ON | on/off | on |
 | （将来）セレクタ上書き `formRoot`/`submitButton` | 文字列 | なし |
 
-`selectorOverrides` は SW の `sanitizeJob()` が既に受け付ける。上級者向けに「サイト構造が変わった時の手動指定」をここに置ける（任意・段階実装）。
+`selectorOverrides` は SW の `sanitizeJob()` が `formRoot` / `submitButton` を受け付ける。上級者向けに「サイト構造が変わった時の手動指定」をここに置ける（任意・段階実装）。現行 UI には selector override 入力欄はまだ無い。`selectorOverrides.heroImage` は content 側の抽出では参照されるが、SW の sanitize/preferences では永続化されない。
 
 保存優先順位:
 
@@ -121,8 +124,8 @@ async function handleExecuteResult(result) {
 
 ## 8. 入口の統合（1・2との接続）
 
-- パターン1・2の「詳細コンソールで開く」から遷移してくる受け口。起動時に `GET_PAGE_DRAFT` を見て、あれば Step1 のURLを自動入力し、`情報を読み取る` を amber 強調（先行 doc 準拠）。なお「現在の予約」カード（live job 直結・予約取り消し）はドラフトに依存せず常時機能する（[3-pattern-sync-redesign-design.md](3-pattern-sync-redesign-design.md) §8.1）。
-- 読み取りは `PARSE_FORM_REQUEST`（URLから読み取り）を使う。現在タブからの直接読み取りは廃止する。
+- パターン1・2の「詳細コンソールで開く」から遷移してくる受け口。起動時に `GET_PAGE_DRAFT` を見て、既存予約が無ければ Step1 のURLを自動入力し、`情報を読み取る` を amber 強調（先行 doc 準拠）。既存予約がある場合、現行実装はドラフトを破棄し、ライブ予約カードを正として表示する。
+- 読み取りは `PARSE_FORM_REQUEST`（URLから読み取り）を使う。`PAGE_DRAFT.tabId` は保存されるが、現行 `parseForm()` は元タブへ直接送らず、SW の URL 読み取り経路を使う。
 
 ## 9. ユーザーフロー（履歴確認・再予約）
 
@@ -145,6 +148,8 @@ flowchart TD
 | 失敗行 | `errorCode` をユーザー語に翻訳（例: `E_SUBMIT_NOT_APPLIED` → 「カート投入が反映されませんでした」）＋ 原文は詳細に格納 |
 | 履歴肥大 | 上限50で古いものから自動破棄。`履歴をクリア`も提供 |
 | 再予約で時刻が過去 | 既存の時刻バリデーション（過去は弾く） |
+| URLパラメータ無しURL | 現行 SW は `isEscapeTicketPageUrl()` を検証に使うため、パス2階層以上なら保存できる可能性がある。案内文言とは差分があるため、実装懸念として記録する。 |
+| 取り消し中に他入口で予約変更 | 現行 options は直接 storage/alarm を clear するため、SW 経由の `expectedJobId` ガードを通らない。将来の改善候補。 |
 
 ## 11. アクセシビリティ
 
@@ -160,8 +165,8 @@ flowchart TD
 5. 詳細設定（間隔/並列/自動チェック）を変更して予約に反映でき、preferences として次回以降の新規予約にも使われる。
 6. 数量が1枚以上あり、実行時刻が確認済みの場合のみ予約保存できる。
 7. 別URLの予約を置き換える場合、明示確認なしではSWが拒否する。
-8. 「予約取り消し」で保存済み予約と alarm を解除でき、ページ内パネル/ポップアップにも反映される。
-9. パターン1/2からの遷移時、URLが引き継がれ「情報を読み取る」が強調される。
+8. 「予約取り消し」で保存済み予約と alarm を解除でき、ページ内パネル/ポップアップにも反映される。現行実装では options 側の直接 storage/alarm clear を含む。
+9. パターン1/2からの遷移時、既存予約が無い場合は URL が引き継がれ「情報を読み取る」が強調される。既存予約がある場合はドラフトを破棄し、ライブ予約を優先する。
 
 ## 13. 段階実装
 
@@ -169,7 +174,7 @@ flowchart TD
 - Phase 2: `te_preferences_v1` と `GET_PREFERENCES`/`SAVE_PREFERENCES` を追加し、詳細設定へ反映。
 - Phase 3: options に「実行履歴」セクション（行リスト＋展開詳細）を追加。
 - Phase 4: 「この内容で再予約」（テンプレ復元）。
-- Phase 5: パターン1ドラフト取り込み・（任意）`selectorOverrides` 編集UI。
+- Phase 5: パターン1ドラフト取り込み・（任意）`selectorOverrides` 編集UI。現行ではドラフトURL取り込みは既存予約なしの場合のみ、`selectorOverrides` 編集UIは未実装。
 
 ## 14. 非ゴール
 

@@ -795,7 +795,7 @@
               <svg class="step-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
             </div>
             <div class="step-body">
-              <input id="triggerAt" class="te-input" type="datetime-local" step="1" style="max-width: 280px" />
+              <input id="triggerAt" class="te-input" type="datetime-local" style="max-width: 280px" />
               <div class="field-help">チケット発売時刻を日本時間（JST）で入力します。</div>
             </div>
           </section>
@@ -867,6 +867,13 @@
                 <div class="checkbox-row">
                   <input id="requireAgreement" type="checkbox" checked />
                   <label for="requireAgreement">フォーム内のチェックボックスをすべて自動チェック（初期値 ON）</label>
+                </div>
+              </div>
+              <div class="adv-field">
+                <span class="adv-label">選択リスト自動選択</span>
+                <div class="checkbox-row">
+                  <input id="autoSelectRequiredOptions" type="checkbox" checked />
+                  <label for="autoSelectRequiredOptions">必須の選択リストは先頭の選択肢を自動選択（初期値 ON）</label>
                 </div>
               </div>
             </div>

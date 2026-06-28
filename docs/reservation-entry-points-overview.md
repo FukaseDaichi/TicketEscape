@@ -2,9 +2,9 @@
 
 TicketEscape の「予約（＝実行待機の登録）」へ至る入口を 3 つ用意する。ユーザーの状況に応じて最短で予約でき、かつ **今の設定画面起点の体験も残す**。本書は 3 パターンに共通する基盤・データ・メッセージ・用語を定義し、各パターンの設計書（`pattern-1/2/3-*.md`）はここを参照する。
 
-関連: [DESIGN.md](../DESIGN.md)（CONSOLE デザインシステム）, [ticket-page-entry-ux-design.md](ticket-page-entry-ux-design.md)（パターン1の検知・起動パネルの先行設計）, [reservation-entry-points-improvement-review.md](reservation-entry-points-improvement-review.md)（3パターン設計の改善検討）。
+関連: [DESIGN.md](../DESIGN.md)（CONSOLE デザインシステム）, [ticket-page-entry-ux-design.md](ticket-page-entry-ux-design.md)（パターン1の検知・起動パネルの先行設計）, [reservation-entry-points-improvement-review.md](reservation-entry-points-improvement-review.md)（3パターン設計の改善検討）, [current-implementation-review.md](current-implementation-review.md)（現行実装レビュー）。
 
-> 実装時の正は本 overview と `pattern-1/2/3-*.md`。`ticket-page-entry-ux-design.md` は先行案・背景資料として扱い、パターン1で矛盾がある場合は `pattern-1-in-page-reservation-design.md` を優先する。
+> 実装時の正は本 overview と `pattern-1/2/3-*.md`。実装確認で見つかった補足・懸念は [current-implementation-review.md](current-implementation-review.md) に集約する。`ticket-page-entry-ux-design.md` は先行案・背景資料として扱い、パターン1で矛盾がある場合は `pattern-1-in-page-reservation-design.md` を優先する。
 
 ---
 
@@ -16,7 +16,7 @@ TicketEscape の「予約（＝実行待機の登録）」へ至る入口を 3 �
 | --- | --- | --- | --- |
 | 起点 | escape.id 配下のページ（常時表示） | ツールバーのアイコン | オプション（拡張の設定） |
 | 主対象 | 「今このページを予約したい」人 | 予約をビジュアル確認・取り消ししたい人 | じっくり設定・運用する人 |
-| URL | URLパラメータ付きの現在ページから自動 | 表示のみ（編集しない） | 手入力 / ページ起点で自動 |
+| URL | 現在ページから自動（パラメータ付き、または購入フォーム検出） | 表示のみ（編集しない） | 手入力 / ページ起点で自動 |
 | 券種の読み取り | ページから直接 | 行わない | URLからSW経由で読み取り |
 | メインビジュアル画像 | 読み取って保存 | 直接リンク表示 | サムネ表示 |
 | 数量・日時の変更 | できる | できない（詳細コンソールへ） | できる |
@@ -34,7 +34,7 @@ TicketEscape の「予約（＝実行待機の登録）」へ至る入口を 3 �
 
 3 パターンとも、最終的に行うのは同じ：
 
-1. **読み取り（確認）** — URLパラメータ付きのチケットページを対象に、`content_script.js` の `handleParseFormRequest()` / `waitForTicketRows()` で公演名・券種・現在数量を取得（購入実行ロジック `applyTicketPlan()` / `submitCart()` には触れない）。
+1. **読み取り（確認）** — escape.id のチケットページを対象に、`content_script.js` の `handleParseFormRequest()` / `waitForTicketRows()` で公演名・券種・現在数量を取得（購入実行ロジック `applyTicketPlan()` / `submitCart()` には触れない）。URLパラメータ付きページが最も確実だが、現行実装は `isEscapeTicketPageUrl()`（パス2階層以上・URLパラメータ任意）と DOM 上の購入フォーム検出を併用する。
 2. **予約（実行待機）** — `SAVE_JOB` で `te_job_v1` を保存し、`chrome.alarms`（`te_trigger_<jobId>`）を作成。
 3. **自動実行** — trigger 時刻に alarm 発火 → `dispatchExecution()` → 対象タブを開く/再利用 → content の `EXECUTE_REQUEST`。
 
@@ -46,7 +46,7 @@ TicketEscape の「予約（＝実行待機の登録）」へ至る入口を 3 �
 
 | キー | 状態 | 用途 | 変更 |
 | --- | --- | --- | --- |
-| `te_job_v1` | 既存 | アクティブな予約（**単一**） | `heroImageUrl`（https のみ）を追加 |
+| `te_job_v1` | 既存 | アクティブな予約（**単一**） | `heroImageUrl`（https のみ・取得できた場合のみ）を追加 |
 | `te_status_v1` | 既存 | 現在の実行ステータス | 変更なし |
 | `te_last_run_v1` | 既存 | 直近の実行結果（単一） | 変更なし（互換維持） |
 | `te_logs_v1` | 既存 | 内部ログ（最大300・リング） | 変更なし |
@@ -77,7 +77,7 @@ TicketEscape の「予約（＝実行待機の登録）」へ至る入口を 3 �
 
 ### `te_runs_v1`（実行履歴）の形
 
-`EXECUTE_RESULT` 受信時に append（先頭が新しい、上限50で末尾を捨てる）。`te_last_run_v1` の上書きと併用する。履歴には、実行完了時点の現在jobではなく、**dispatch時点の job snapshot** を保存する。
+`EXECUTE_RESULT` 受信時に append（先頭が新しい、上限50で末尾を捨てる）。`te_last_run_v1` の上書きと併用する。履歴には、実行完了時点の現在jobではなく、**dispatch時点の job snapshot** を保存する。現行実装では `runId` 単位で記録するため、`parallelTabCount > 1` のときは1回の dispatch で複数行が追加されうる。
 
 ```js
 // te_runs_v1: RunRecord[]
@@ -128,14 +128,14 @@ TicketEscape の「予約（＝実行待機の登録）」へ至る入口を 3 �
 | `CLEAR_PAGE_DRAFT` | options/content → SW | 予約成功・URL手動変更でドラフト破棄 | 1, 3 |
 | `GET_RUNS` | options → SW | 実行履歴 `te_runs_v1` を取得 | 3 |
 | `CLEAR_RUNS` | options → SW | 履歴クリア | 3 |
-| `GET_PREFERENCES` | options/popup/content → SW | 詳細設定の既定値取得 | 1,2,3 |
+| `GET_PREFERENCES` | options → SW | 詳細設定の既定値取得（`GET_STATUS` 応答にも preferences を含める） | 3 |
 | `SAVE_PREFERENCES` | options → SW | 詳細設定の既定値保存 | 3 |
 
 ポップアップは読み取り・新規予約・編集を行わない（ビジュアル確認＋取り消しのみ）。読み取りはページ内パネルで直接行うか、詳細コンソールの `PARSE_FORM_REQUEST`（URLから読み取り）で行う。`PARSE_FORM_REQUEST` の応答には `heroImageUrl`（メインビジュアル画像）を含める。
 
 `SAVE_JOB` はパターン1・3 から呼ばれるため、上書き確認を共通化する。別URL・別jobIdの予約を置き換える場合は、UI確認に加えて SW 側でも `replaceConfirmed: true` と `expectedPreviousJobId` がない保存を拒否する。`SAVE_JOB` の job には `heroImageUrl` を含めてよい（SW が https のみにサニタイズ）。
 
-`CANCEL_JOB` は3入口すべてから呼べる。各UIは取り消し直前に `GET_JOB` で **live jobId を取り直して** `expectedJobId` に渡す。`expectedJobId` は任意で、未指定なら現在の予約をそのまま取り消す（[3-pattern-sync-redesign-design.md](3-pattern-sync-redesign-design.md) §3.2）。
+`CANCEL_JOB` は3入口すべてから呼べる。popup と content panel は取り消し直前に `GET_JOB` で **live jobId を取り直して** `expectedJobId` に渡す。`expectedJobId` は任意で、未指定なら現在の予約をそのまま取り消す（[3-pattern-sync-redesign-design.md](3-pattern-sync-redesign-design.md) §3.2）。なお現行の詳細コンソールは options 側で storage/alarm を直接 clear した後に `CANCEL_JOB` を送る実装で、単一経路化は未完了（[current-implementation-review.md](current-implementation-review.md) §2）。
 
 ```js
 {
@@ -147,11 +147,11 @@ TicketEscape の「予約（＝実行待機の登録）」へ至る入口を 3 �
 }
 ```
 
-SW共通バリデーション:
+SW共通バリデーション（現行実装）:
 
 - `ticketPlans` に `targetQty > 0` が1件以上必要。
-- `targetUrl` は `https://escape.id/{任意}/{任意}/?...` のようにURLパラメータ付きである必要がある。
-- `https://escape.id/uzu-org/e-MIRAGE/` のようにURLパラメータがないページは予約不可。
+- `targetUrl` は `https://escape.id/{任意}/{任意}/` 相当（パス2階層以上）である必要がある。URLパラメータは現行 SW では必須ではない。
+- `https://escape.id/uzu-org/e-MIRAGE/` のようにURLパラメータがないページでも、詳細コンソールから手動券種で保存できる可能性がある。これは現在の実装を正とした記録であり、将来「購入フォームが確実にあるURLだけ保存」に戻すならコード側の判定を再整理する。
 - 新規予約では実行時刻のユーザー確認が必要。
 - 既存予約を別URLで置き換える場合は明示確認が必要。
 - これらはUIだけでなく `sanitizeJob()` / `handleSaveJob()` 側でも拒否する。

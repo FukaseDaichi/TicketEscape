@@ -18,6 +18,7 @@
     getErrorMessage,
     buildReservationView,
     formatLocalDatetimeInput,
+    formatJstDateTime,
     toJstIsoStringFromDatetimeLocal
   } = shared;
 
@@ -26,6 +27,7 @@
 
   const ARM_NOTE_DEFAULT = "設定を確認したら押してください。この画面は開いたままにします。";
   const ALARM_PREFIXES = ["te_warmup_", "te_trigger_"];
+  const PAGE_DRAFT_MAX_AGE_MS = 10 * 60 * 1000;
 
   const state = {
     elements: {},
@@ -43,6 +45,7 @@
     wizardHydrated: false,
     wizardJobKey: "",
     pageDraft: null,
+    cancelInFlight: false,
     preferences: { ...DEFAULT_PREFERENCES },
     runs: [],
     syncIntervalId: null,
@@ -70,6 +73,7 @@
       clickIntervalMs:  document.getElementById("clickIntervalMs"),
       parallelTabCount: document.getElementById("parallelTabCount"),
       requireAgreement: document.getElementById("requireAgreement"),
+      autoSelectRequiredOptions: document.getElementById("autoSelectRequiredOptions"),
       parseFormButton:  document.getElementById("parseFormButton"),
       saveButton:       document.getElementById("saveButton"),
       addPlanButton:    document.getElementById("addPlanButton"),
@@ -131,9 +135,25 @@
       void saveJob();
     });
 
-    state.elements.crCancelButton.addEventListener("click", () => {
-      void cancelJob();
-    });
+    state.elements.crCancelButton.addEventListener("click", handleCancelButtonClick);
+    document.addEventListener("click", (event) => {
+      const cancelButton = event.target && event.target.closest
+        ? event.target.closest("#crCancelButton")
+        : null;
+      if (!cancelButton) {
+        return;
+      }
+      handleCancelButtonClick(event);
+    }, true);
+    document.addEventListener("pointerdown", (event) => {
+      const cancelButton = event.target && event.target.closest
+        ? event.target.closest("#crCancelButton")
+        : null;
+      if (!cancelButton) {
+        return;
+      }
+      handleCancelButtonClick(event);
+    }, true);
 
     state.elements.crEditButton.addEventListener("click", () => {
       loadLiveJobIntoWizard();
@@ -177,7 +197,8 @@
     for (const prefInput of [
       state.elements.clickIntervalMs,
       state.elements.parallelTabCount,
-      state.elements.requireAgreement
+      state.elements.requireAgreement,
+      state.elements.autoSelectRequiredOptions
     ]) {
       prefInput.addEventListener("change", () => {
         void savePreferencesFromForm();
@@ -239,10 +260,20 @@
     });
   }
 
+  function handleCancelButtonClick(event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    void cancelJob();
+  }
+
   function setDefaultValues() {
     state.elements.clickIntervalMs.value  = String(DEFAULT_PREFERENCES.clickIntervalMs);
     state.elements.parallelTabCount.value = String(DEFAULT_PREFERENCES.parallelTabCount);
     state.elements.requireAgreement.checked = DEFAULT_PREFERENCES.requireAgreement !== false;
+    state.elements.autoSelectRequiredOptions.checked =
+      DEFAULT_PREFERENCES.autoSelectRequiredOptions !== false;
     state.elements.triggerAt.value = formatLocalDatetimeInput(Date.now() + 10 * 60 * 1000);
     state.triggerConfirmed = false;
     if (!state.elements.planRows.children.length) {
@@ -358,6 +389,16 @@
       }
       const draftUrl = ensureEscapeUrl(response.draft.url);
       if (!draftUrl || !isEscapeTicketPageUrl(draftUrl)) {
+        await clearPageDraft();
+        return;
+      }
+      const draftAgeMs = Date.now() - Number(response.draft.detectedAt || 0);
+      if (!Number.isFinite(draftAgeMs) || draftAgeMs < 0 || draftAgeMs > PAGE_DRAFT_MAX_AGE_MS) {
+        await clearPageDraft();
+        return;
+      }
+      if (state.loadedJob || state.liveJob) {
+        await clearPageDraft();
         return;
       }
       state.pageDraft = response.draft;
@@ -371,6 +412,7 @@
       updateStandbyAttention();
       updateStepStates();
       setStatus("ページから予約対象URLを取り込みました。「情報を読み取る」を押してください。");
+      await clearPageDraft();
     } catch (error) {
       setStatus(`ページ情報の取り込み失敗: ${error.message}`);
     }
@@ -410,6 +452,7 @@
       job.parallelTabCount ?? DEFAULT_JOB.parallelTabCount
     );
     state.elements.requireAgreement.checked = job.requireAgreement !== false;
+    state.elements.autoSelectRequiredOptions.checked = job.autoSelectRequiredOptions !== false;
 
     state.elements.planRows.innerHTML = "";
     const ticketPlans = Array.isArray(job.ticketPlans) ? job.ticketPlans : [];
@@ -433,6 +476,7 @@
       prefs.parallelTabCount ?? DEFAULT_PREFERENCES.parallelTabCount
     );
     state.elements.requireAgreement.checked = prefs.requireAgreement !== false;
+    state.elements.autoSelectRequiredOptions.checked = prefs.autoSelectRequiredOptions !== false;
   }
 
   async function parseForm() {
@@ -531,6 +575,7 @@
       clickIntervalMs:  clampInt(state.elements.clickIntervalMs.value,  DEFAULT_JOB.clickIntervalMs,  5, 500),
       parallelTabCount: clampInt(state.elements.parallelTabCount.value, DEFAULT_JOB.parallelTabCount, 1, 5),
       requireAgreement: state.elements.requireAgreement.checked,
+      autoSelectRequiredOptions: state.elements.autoSelectRequiredOptions.checked,
       ticketPlans
     };
 
@@ -553,6 +598,10 @@
         return;
       }
       state.elements.jobId.value = response.job.jobId;
+      const savedTriggerEpoch = Date.parse(String(response.job.triggerAtJst || ""));
+      if (Number.isFinite(savedTriggerEpoch)) {
+        state.elements.triggerAt.value = formatLocalDatetimeInput(savedTriggerEpoch);
+      }
       setCurrentReservation(response.job);
       state.liveStatus = {
         state: STATUS.WAIT_TRIGGER,
@@ -575,47 +624,48 @@
   }
 
   async function cancelJob() {
-    if (!globalScope.confirm("現在の予約を取り消しますか？")) {
+    if (state.cancelInFlight) {
+      return;
+    }
+    if (!(await ensureExtensionContextReady())) {
       return;
     }
 
+    state.cancelInFlight = true;
     state.elements.crCancelButton.disabled = true;
     setStatus("予約を取り消し中...");
 
     try {
-      try {
-        const latest = await sendMessage({ type: MESSAGE_TYPES.GET_JOB });
-        if (latest.ok) {
-          setCurrentReservation(latest.job || null);
-          state.liveSyncedAt = Date.now();
-        }
-      } catch (_) {
-        // Cancellation itself is authoritative; continue even if the refresh fails.
-      }
-
-      const response = await sendMessage({
-        type: MESSAGE_TYPES.CANCEL_JOB
-      });
-      if (!response.ok) {
-        await clearStoredReservationFromOptions();
-        clearReservationUiAfterCancel();
-        setStatus(`予約を直接取り消しました。詳細: ${formatResponseError(response)}`);
-        await loadSavedJob({ populateWizard: false, silent: true });
-        return;
-      }
+      await clearStoredReservationFromOptions();
       clearReservationUiAfterCancel();
-      setStatus(response.canceled === false ? "取り消す予約はありません。" : "予約を取り消しました。");
+      setStatus("予約を取り消しました。");
+      void sendMessage({ type: MESSAGE_TYPES.CANCEL_JOB }).catch(() => {
+        // Storage has already been cleared by this page.
+      });
       await loadSavedJob({ populateWizard: false, silent: true });
     } catch (error) {
+      if (isExtensionContextInvalidatedError(error)) {
+        reloadStaleOptionsPage();
+        return;
+      }
       try {
-        await clearStoredReservationFromOptions();
+        const response = await sendMessage({ type: MESSAGE_TYPES.CANCEL_JOB });
+        if (!response.ok) {
+          throw new Error(formatResponseError(response));
+        }
         clearReservationUiAfterCancel();
-        setStatus(`予約を直接取り消しました。詳細: ${error.message}`);
+        setStatus("予約を取り消しました。");
         await loadSavedJob({ populateWizard: false, silent: true });
       } catch (fallbackError) {
+        if (isExtensionContextInvalidatedError(fallbackError)) {
+          reloadStaleOptionsPage();
+          return;
+        }
         state.elements.crCancelButton.disabled = false;
         setStatus(`予約取り消し失敗: ${fallbackError.message || error.message}`);
       }
+    } finally {
+      state.cancelInFlight = false;
     }
   }
 
@@ -627,14 +677,36 @@
     state.armed = false;
     state.elements.jobId.value = "";
     state.wizardJobKey = "";
+    resetReservationFormAfterCancel();
     setIdleCountdown();
     renderCurrentReservation();
   }
 
+  function resetReservationFormAfterCancel() {
+    state.pageDraft = null;
+    state.confirmedTargetUrl = "";
+    state.eventTitle = "";
+    state.heroImageUrl = "";
+    state.triggerConfirmed = false;
+    state.wizardHydrated = false;
+    state.elements.jobId.value = "";
+    state.elements.targetUrl.value = "";
+    state.elements.triggerAt.value = formatLocalDatetimeInput(Date.now() + 10 * 60 * 1000);
+    state.elements.planRows.innerHTML = "";
+    addPlanRow("", 0);
+    updateEventReadout();
+    updateConfirmAttention();
+    updateStandbyAttention();
+    updateStepStates();
+  }
+
   async function clearStoredReservationFromOptions() {
+    await removeLocalStorageKeys([
+      STORAGE_KEYS.JOB,
+      STORAGE_KEYS.DISPATCH_GUARD,
+      STORAGE_KEYS.PAGE_DRAFT
+    ]);
     await setLocalStorageValues({
-      [STORAGE_KEYS.JOB]: null,
-      [STORAGE_KEYS.DISPATCH_GUARD]: null,
       [STORAGE_KEYS.STATUS]: {
         state: STATUS.IDLE,
         jobId: null,
@@ -647,6 +719,14 @@
     } catch (_) {
       // With no stored job, a leftover alarm is harmless; the worker exits early.
     }
+  }
+
+  async function clearPageDraft() {
+    state.pageDraft = null;
+    await removeLocalStorageKeys([STORAGE_KEYS.PAGE_DRAFT]);
+    void sendMessage({ type: MESSAGE_TYPES.CLEAR_PAGE_DRAFT }).catch(() => {
+      // The local draft key has already been removed.
+    });
   }
 
   function clearTicketEscapeAlarmsFromOptions() {
@@ -705,6 +785,43 @@
     });
   }
 
+  function removeLocalStorageKeys(keys) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.remove(keys, () => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  async function ensureExtensionContextReady() {
+    try {
+      await sendMessage({ type: MESSAGE_TYPES.PING });
+      return true;
+    } catch (error) {
+      if (isExtensionContextInvalidatedError(error)) {
+        reloadStaleOptionsPage();
+        return false;
+      }
+      return true;
+    }
+  }
+
+  function isExtensionContextInvalidatedError(error) {
+    return /extension context invalidated/i.test(String(error && error.message ? error.message : error || ""));
+  }
+
+  function reloadStaleOptionsPage() {
+    setStatus("詳細ページが古い状態です。再読み込みします...");
+    globalScope.setTimeout(() => {
+      globalScope.location.reload();
+    }, 150);
+  }
+
   async function savePreferencesFromForm() {
     const preferences = {
       clickIntervalMs: clampInt(
@@ -720,6 +837,7 @@
         5
       ),
       requireAgreement: state.elements.requireAgreement.checked,
+      autoSelectRequiredOptions: state.elements.autoSelectRequiredOptions.checked,
       selectorOverrides: state.preferences.selectorOverrides || null
     };
 
@@ -908,13 +1026,7 @@
   }
 
   function formatDisplayDate(value) {
-    const epoch = typeof value === "number" ? value : Date.parse(String(value || ""));
-    if (!Number.isFinite(epoch)) {
-      return "--";
-    }
-    const d = new Date(epoch);
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return formatJstDateTime(value) || "--";
   }
 
   function shortenUrl(url) {
@@ -1346,6 +1458,7 @@
       clickIntervalMs: Number.parseInt(job.clickIntervalMs, 10) || DEFAULT_JOB.clickIntervalMs,
       parallelTabCount: Number.parseInt(job.parallelTabCount, 10) || DEFAULT_JOB.parallelTabCount,
       requireAgreement: job.requireAgreement !== false,
+      autoSelectRequiredOptions: job.autoSelectRequiredOptions !== false,
       plans
     });
   }

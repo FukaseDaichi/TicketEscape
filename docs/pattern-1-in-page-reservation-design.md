@@ -3,6 +3,8 @@
 > 共通基盤は [reservation-entry-points-overview.md](reservation-entry-points-overview.md) を参照。検知・起動パネルの先行設計は [ticket-page-entry-ux-design.md](ticket-page-entry-ux-design.md) を継承・拡張する。
 >
 > **方針更新**: 表示ゲート（escape.id 配下なら常時表示）と状態機械（ARMED / OTHER_RESERVED / READY / LAUNCHER）の最新仕様は [3-pattern-sync-redesign-design.md](3-pattern-sync-redesign-design.md)（§6）が正。副ボタンの表記は「詳細コンソールで開く」に統一。
+>
+> **実装確認メモ**: 現行 content panel は `ensureEscapeUrl(location.href)` で escape.id 配下なら生成され、`isReservableTicketUrl(location.href) || hasPurchaseForm()` で読み取り可能性を判定する。URL/フォーム状態は polling でも追従する。実装上の細かな差分は [current-implementation-review.md](current-implementation-review.md) を参照。
 
 ## 1. 目的
 
@@ -16,10 +18,10 @@
 
 ```
 表示ゲート: protocol https / hostname escape.id（= どのページでも生成）
-予約フロー(READY): さらに URLパラメータあり（isReservableTicketUrl）
+予約フロー(READY): URLパラメータ付きページ、またはDOM上に購入フォームがあるページ
 ```
 
-`https://escape.id/uzu-org/e-MIRAGE/` のようにURLパラメータがないページでは「予約」フローは出さず、予約があれば予約サマリ（カウントダウン＋取り消し）、無ければ小さなランチャーバッジを出す。券種の読み取りはURLパラメータ付きの購入ページでのみ行う。
+`https://escape.id/uzu-org/e-MIRAGE/` のようにURLパラメータがないページでも、購入フォームがまだ DOM 上に無ければ「予約」フローは出さず、予約があれば予約サマリ（カウントダウン＋取り消し）、無ければ小さなランチャーバッジを出す。日付選択などで購入フォームが出たら、URLパラメータの有無にかかわらず読み取りフローへ進める。
 
 ## 3. スコープ（このパネルでできること）
 
@@ -32,7 +34,7 @@
 
 読み取り時に公演のメインビジュアル画像URL（`div[class^="first"] img` → og:image → 最大画像 の順）も取得し、`heroImageUrl`（https のみ）として job に保存する。ポップアップ等のビジュアル表示に使う（[3-pattern-sync-redesign-design.md](3-pattern-sync-redesign-design.md) §5）。
 
-このパネルでは履歴・詳細設定（クリック間隔・並列数等）は**出さない**。ただし固定の初期値ではなく、`te_preferences_v1` の既定値を使用する。詳細は「詳細設定を開く」でパターン3へ。
+このパネルでは履歴・詳細設定（クリック間隔・並列数等）は**出さない**。ただし固定の初期値ではなく、`te_preferences_v1` の既定値を使用する。詳細は「詳細コンソールで開く」でパターン3へ。
 
 ## 4. パネルの状態モデル
 
@@ -41,9 +43,9 @@
 | 状態 | 条件 | 主な表示 | 主ボタン |
 | --- | --- | --- | --- |
 | `ARMED` | 予約あり & job.url ≈ このページ | STANDBY＋カウントダウン＋公演名＋券種 | 予約取り消し／詳細コンソールで開く |
-| `OTHER_RESERVED` | 予約あり & 別URL & このページが購入フォーム有 | 「別の公演を予約中」＋カウントダウン | このページを予約する／予約取り消し／詳細コンソールで開く |
+| `OTHER_RESERVED` | 予約あり & 別URL & このページが読み取り可能 | 「別の公演を予約中」＋カウントダウン | このページを予約する／予約取り消し／詳細コンソールで開く |
 | `OTHER_RESERVED_VIEW` | 予約あり & 別URL & フォーム無し | 「別の公演を予約中」＋カウントダウン | 予約取り消し／詳細コンソールで開く |
-| `READY` | 未予約 & 購入フォーム有（URLパラメータ） | 「このページを予約できます」 | **このチケットを予約する**／詳細コンソールで開く |
+| `READY` | 未予約 & 読み取り可能（URLパラメータ付き、または購入フォーム検出） | 「このページを予約できます」 | **このチケットを予約する**／詳細コンソールで開く |
 | `READING` | 読み取り実行中 | 進行表示 | （無効） |
 | `FORM` | 読み取り成功 | 公演名＋券種ステッパー＋日時入力 | **予約**／詳細コンソールで開く |
 | `READ_FAILED` | 取得失敗 | 原因別エラー | 再読み取り／詳細コンソールで開く |
@@ -65,7 +67,7 @@
 │  学生チケット      [−]  0  [＋]      │
 │  [＋ 券種を手動で追加]               │
 │ ─────────────────────────────────── │
-│ 実行時刻(JST)  [2026/06/27 22:00:00] │
+│ 実行時刻(JST)  [6月27日22時00分] │
 │ ─────────────────────────────────── │
 │      [      予約      ]   │  ← amber 実体
 │  数量0/時刻未確認なら disabled        │
@@ -87,6 +89,8 @@
 ### 読み取り（確認）
 - パネルは content script 内の既存 `handleParseFormRequest()` を**そのまま直接呼ぶ**（同一コンテキスト＝メッセージ往復不要・新規タブ不要）。これが「今の確認動作と同じ感じ」の中身。
 - 取得した `tickets`（label/currentQty/priceText）と `eventTitle` をパネルへ反映。
+- 読み取り可否は `canReadCurrentPage()` が決める。`isReservableTicketUrl(location.href)` が true、または `findFormRoot()` で購入フォームが見つかれば読み取りへ進む。
+- URL/フォーム状態は `popstate` / `hashchange` / 250ms polling で監視し、日付選択後の SPA 的な変化にも追従する。
 
 ### 予約（実行待機）
 - パネルは job を組み立て、`SAVE_JOB` を SW へ送る。
@@ -105,11 +109,12 @@ job = {
 ```
 
 - SW は既存 `handleSaveJob()` で sanitize＋alarm 作成。成功で `ARMED` に遷移しカウントダウン表示。
+- 現行 SW の保存検証は `isEscapeTicketPageUrl()`（パス2階層以上・URLパラメータ任意）を使う。パネル側は `canReadCurrentPage()` で購入フォームの有無も見るため、URLパラメータだけを唯一の保存条件にはしていない。
 - 予約後の trigger 実行: 既存 `dispatchExecution()` が対象URLのタブを再利用（このページが該当）。ロジック変更なし。
 - `clickIntervalMs` / `parallelTabCount` / `requireAgreement` は `te_preferences_v1` を使う。preferences がなければ `DEFAULT_JOB`。
 
 ### 既存ジョブとの整合
-- 起動時に `GET_JOB`/`GET_STATUS` を取得。
+- 起動時に `GET_STATUS` を取得し、job/status/preferences を同期する。取り消し直前は `GET_JOB` で live job を取り直す。
   - 同URL → `SAME_JOB`（待機中表示）。
   - 別URL → `OTHER_JOB`。「このページに切り替える」で確認の上 `SAVE_JOB` 上書き（無確認上書きはしない）。SW側でも確認フラグなしの上書きを拒否する。
 
@@ -121,7 +126,7 @@ job = {
 ```mermaid
 flowchart TD
   A[escape.id 便ページを開く] --> B[content: URL候補+フォーム検出]
-  B --> C{対象か}
+  B --> C{escape.id か}
   C -- いいえ --> D[何も出さない]
   C -- はい --> E[右下パネル READY]
   E --> F[このチケットを予約する]
@@ -153,7 +158,7 @@ flowchart TD
 
 ## 10. 受け入れ条件
 
-1. escape.id 配下のどのページでも右下にパネルが出る（予約あり→サマリ＋カウントダウン、購入フォーム有→予約フロー、どちらも無し→ランチャーバッジ）。
+1. escape.id 配下のどのページでも右下にパネルまたは小バッジが出る（予約あり→サマリ＋カウントダウン、購入フォーム有またはURLパラメータ付き→予約フロー、どちらも無し→ランチャーバッジ）。
 2. 「このチケットを予約する」→ ページから公演名・券種・現在数量が反映される。
 3. パネル内で数量（ステッパー）と実行時刻を設定できる。
 4. 数量が1枚以上あり、実行時刻が確認済みの場合のみ「予約」できる。

@@ -3,6 +3,8 @@
 > 共通基盤は [reservation-entry-points-overview.md](reservation-entry-points-overview.md)、最新方針は [3-pattern-sync-redesign-design.md](3-pattern-sync-redesign-design.md)（§7・§10）が正。実装は [popup/popup.html](../popup/popup.html) / [popup/popup.js](../popup/popup.js)。
 >
 > **方針更新**: 当初の「ポップアップで編集・再予約」案は撤回し、ポップアップは **現在の予約をビジュアルに確認し、取り消すこと** に専念する。編集（URL・時刻・数量）と新規予約は詳細コンソール（パターン3）へ集約する。
+>
+> **実装確認メモ**: 現行 popup は `GET_STATUS` と現在タブ判定だけで描画し、`SAVE_JOB` は送らない。現在タブの対象判定は `isEscapeTicketPageUrl()`（パス2階層以上・URLパラメータ任意）で行う。
 
 ## 1. 目的
 
@@ -30,7 +32,7 @@
 │ [ メインビジュアル画像（直接リンク）  ]   │
 │ 予約中のチケット                          │
 │ 公演タイトル                              │
-│ 実行時刻 (JST)  2026-06-27 22:00:00       │
+│ 実行時刻 (JST)  6月27日22時00分           │
 │ 購入チケット    一般×2  学生×1           │
 │ [          予約取り消し          ]        │
 │ [        詳細コンソールで開く        ]    │
@@ -64,9 +66,9 @@
 ## 6. データとメッセージ
 
 - 取得: `GET_STATUS`（job/status/preferences）。起動時と `storage.onChanged`（JOB/STATUS）で再描画。
-- 現在タブ判定: `chrome.tabs.query({active:true,currentWindow:true})`。
+- 現在タブ判定: `chrome.tabs.query({active:true,currentWindow:true})` で取得し、`isEscapeTicketPageUrl(activeTab.url)`（パス2階層以上・URLパラメータ任意）を見る。
 - 予約取り消し: `GET_JOB` で **live jobId を取り直して** `CANCEL_JOB`（3-pattern §3.2）。
-- 詳細コンソールで開く: 現在タブが対象チケットページなら `OPEN_OPTIONS_WITH_PAGE`（ドラフト引き継ぎ）、そうでなければ素の設定タブを開く。
+- 詳細コンソールで開く: 現在タブが対象チケットページなら `OPEN_OPTIONS_WITH_PAGE`（ドラフト引き継ぎ）、そうでなければ素の設定タブを開く。escape.id トップなどパス2階層未満のページはドラフトなしで開く。
 - ポップアップは `SAVE_JOB` を送らない。
 
 ## 7. ユーザーフロー

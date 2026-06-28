@@ -1,6 +1,8 @@
 # 予約入口3パターンの同期と再設計（設計書）
 
 > 共通基盤は [reservation-entry-points-overview.md](reservation-entry-points-overview.md)、各入口は [pattern-1](pattern-1-in-page-reservation-design.md) / [pattern-2](pattern-2-popup-reservation-design.md) / [pattern-3](pattern-3-detail-console-design.md) を参照。本書はそれら3入口の **同期不整合の解消** と、**パターン2（ポップアップ）のビジュアル化** を中心とした再設計を定義する。本書と各 pattern doc に差分がある場合は本書を優先する。
+>
+> **実装確認メモ**: 2026-06-28 時点で本書の主要方針（`buildReservationView`、ポップアップの表示専念、ヒーロー画像、現在の予約カード、履歴snapshot）は実装済み。詳細コンソールの取り消し経路と URLパラメータ必須の扱いには実装上の例外があるため、[current-implementation-review.md](current-implementation-review.md) も併読する。
 
 ## 1. 目的・背景
 
@@ -30,7 +32,7 @@ job と status から、全画面共通の描画用ビューモデルを返す�
   targetUrl: string,
   eventTitle: string,
   triggerEpoch: number | null,
-  triggerJstText: string,      // 例 "2026-06-27 22:00:00"（JST固定）
+  triggerJstText: string,      // 例 "6月27日22時00分"（JST固定）
   remainingMs: number | null,  // triggerEpoch - now（無ければ null）
   phase: "idle" | "armed" | "tminus" | "firing" | "success" | "failed",
   ticketSummary: [{ ticketLabel, targetQty }], // targetQty > 0 のみ
@@ -39,12 +41,13 @@ job と status から、全画面共通の描画用ビューモデルを返す�
 ```
 
 - `phase` 導出は現行 popup の `phaseOf()` ロジックを共通化する（`status.state` と `remainingMs`：SUCCESS/FAILED は状態優先、実行中状態または `remainingMs <= 0` は `firing`、`remainingMs <= 60s` は `tminus`、それ以外で予約中は `armed`、無予約は `idle`）。
-- `triggerJstText` は `Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", ... })`（現行 popup の `formatJst` を共通化）。
+- `triggerJstText` は共通の `formatJstDateTime()` で `N月N日N時N分` まで表示し、秒は表示しない。
 - popup / content / options は **この関数の返り値だけ** を見て予約サマリを描画する。各画面固有の編集状態（フォーム入力中の値など）はこの限りでない。
 
 ### 3.2 取り消しの堅牢化
 
-- **UI側**: 取り消し直前に `GET_JOB` で**現在の jobId を取り直して** `CANCEL_JOB { expectedJobId: liveJobId }` を送る。live job が無ければ「予約なし」表示にして終了する（古い `state.loadedJob` を信頼しない）。
+- **popup / content panel**: 取り消し直前に `GET_JOB` で**現在の jobId を取り直して** `CANCEL_JOB { expectedJobId: liveJobId }` を送る。live job が無ければ「予約なし」表示にして終了する（古いローカル状態を信頼しない）。
+- **詳細コンソール（現行実装）**: options 側で `te_job_v1` / guard / draft を直接削除し、alarm を clear してから `CANCEL_JOB` を送る。体験上は取り消せるが、SW の `handleCancelJob()` に集約する設計とは異なる。将来、取り消し監査性とレース耐性を上げるなら `GET_JOB` → `CANCEL_JOB expectedJobId` の単一経路へ寄せる。
 - **SW `handleCancelJob`**: `expectedJobId` が未指定（falsy）の場合は **現在保存中の job をそのまま取り消す**（明示的なユーザー操作のため）。`expectedJobId` 指定があり不一致なら従来どおり拒否する（UIが live id を渡すので実質的に不一致は起きない）。
 - **options `loadPageDraft()`**: 現在予約の管理は後述「現在の予約カード」（live job 直結）が担うため、ドラフト取込でウィザード側 `jobId` 入力を空にしても取り消しは壊れない。ドラフトは自由に表示してよい。
 
@@ -92,6 +95,7 @@ job と status から、全画面共通の描画用ビューモデルを返す�
 - 予約中はどの escape.id ページでもカウントダウンと取り消しが見える（＝同期の主要メリット）。
 - `ARMED`/`OTHER_RESERVED_VIEW` のカウントダウンは `buildReservationView.remainingMs` を 250ms 間隔で再描画。
 - `FORM` で予約成功時に `heroImageUrl` を含めて `SAVE_JOB`。
+- 実装では `popstate` / `hashchange` / 250ms polling で URL と購入フォーム有無を監視し、日付選択などの SPA 的な状態変化にもパネル状態を追従させる。
 
 ## 7. パターン2（ポップアップ＝ビジュアル確認に専念）
 
@@ -151,7 +155,7 @@ job と status から、全画面共通の描画用ビューモデルを返す�
 
 ## 11. メッセージ（変更なし／微修正）
 
-- 新規メッセージは追加しない。
+- 本同期再設計のためだけの新規メッセージは追加しない（`GET_RUNS` / `GET_PREFERENCES` / `OPEN_OPTIONS_WITH_PAGE` などは3パターン基盤として既に定義済み）。
 - `CANCEL_JOB` の `expectedJobId` を**任意化**（未指定なら現在の予約を取り消す）。
 - `PARSE_FORM_REQUEST` の応答に `heroImageUrl` を追加。
 - `SAVE_JOB` の job に `heroImageUrl` を含める。
@@ -180,12 +184,18 @@ job と status から、全画面共通の描画用ビューモデルを返す�
 
 - 購入実行ロジック（`applyTicketPlan` / `submitCart`）は変更しない。
 - アクティブ予約の複数同時保持はしない（単一 `te_job_v1` ＋履歴を継続）。
-- 新規ストレージキー・新規メッセージタイプは追加しない（`heroImageUrl` は既存 job に内包）。
+- 本同期再設計のために追加のストレージキー・メッセージタイプは増やさない（`heroImageUrl` は既存 job に内包）。履歴・preferences・page draft は3パターン基盤の範囲。
 - ポップアップでの新規URL読み取り・編集は復活させない（編集は詳細コンソールに集約）。
 
-## 15. 影響ファイル
+## 15. 既知の実装差分
 
-- [lib/shared.js](../lib/shared.js): `buildReservationView`, `ensureHttpsUrl`, `formatJst` 共通化。
+- URLパラメータ必須の設計に対し、現行 SW は `SAVE_JOB` / `PARSE_FORM_REQUEST` / dispatch で `isEscapeTicketPageUrl()` を使うため、パス2階層以上なら URLパラメータ無しでも通る可能性がある。
+- `selectorOverrides.heroImage` は content 側の抽出では使えるが、SW の sanitize/preferences では保持しない。
+- `PAGE_DRAFT.tabId` は保存されるが、詳細コンソールの `情報を読み取る` は元タブ直送ではなく SW の URL 読み取り経路を使う。
+
+## 16. 影響ファイル
+
+- [lib/shared.js](../lib/shared.js): `buildReservationView`, `ensureHttpsUrl`, `formatJstDateTime` 共通化。
 - [content/content_script.js](../content/content_script.js): 表示ゲート, 状態切替, `heroImageUrl` 抽出, 取り消し堅牢化, 表記。
 - [popup/popup.js](../popup/popup.js) / [popup/popup.html](../popup/popup.html): ビジュアル化, 編集撤去, 画像, 取り消し堅牢化, 表記。
 - [options/options.js](../options/options.js) / [options/options.html](../options/options.html): 「現在の予約」カード, ドラフト修正, Step4 整理, 取り消し堅牢化, ヒーローサムネ。

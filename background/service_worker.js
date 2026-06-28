@@ -18,7 +18,8 @@ importScripts("../lib/shared.js");
     getErrorMessage,
     toEpoch,
     createId,
-    clampInt
+    clampInt,
+    normalizeJstIsoToMinute
   } = shared;
 
   const LOG_LIMIT = 300;
@@ -102,7 +103,7 @@ importScripts("../lib/shared.js");
   }
 
   async function handleGetJob() {
-    const job = await getStorageValue(STORAGE_KEYS.JOB, null);
+    const job = await getNormalizedStoredJob();
     return { job };
   }
 
@@ -164,13 +165,13 @@ importScripts("../lib/shared.js");
   }
 
   async function handleGetStatus() {
-    const [job, lastRun, status, alarms, preferences] = await Promise.all([
-      getStorageValue(STORAGE_KEYS.JOB, null),
+    const [job, lastRun, status, preferences] = await Promise.all([
+      getNormalizedStoredJob(),
       getStorageValue(STORAGE_KEYS.LAST_RUN, null),
       getStorageValue(STORAGE_KEYS.STATUS, { state: STATUS.IDLE, updatedAt: Date.now() }),
-      getTicketEscapeAlarms(),
       getPreferences()
     ]);
+    const alarms = await getTicketEscapeAlarms();
 
     return {
       job,
@@ -333,7 +334,7 @@ importScripts("../lib/shared.js");
       return;
     }
 
-    const job = await getStorageValue(STORAGE_KEYS.JOB, null);
+    const job = await getNormalizedStoredJob();
     if (!job) {
       return;
     }
@@ -344,8 +345,57 @@ importScripts("../lib/shared.js");
     }
 
     if (alarm.name === `${ALARM_TRIGGER_PREFIX}${job.jobId}`) {
+      const triggerEpoch = toEpoch(job.triggerAtJst);
+      if (
+        Number.isFinite(alarm.scheduledTime) &&
+        Number.isFinite(triggerEpoch) &&
+        Math.abs(alarm.scheduledTime - triggerEpoch) > 1000
+      ) {
+        await appendLog("STALE_ALARM", "Ignored stale trigger alarm after minute normalization.", {
+          jobId: job.jobId,
+          alarmScheduledTime: alarm.scheduledTime,
+          triggerAtJst: job.triggerAtJst
+        });
+        return;
+      }
       await dispatchExecution(job, { forceImmediate: true, reason: "trigger" });
     }
+  }
+
+  async function getNormalizedStoredJob() {
+    const job = await getStorageValue(STORAGE_KEYS.JOB, null);
+    if (!job || typeof job !== "object") {
+      return null;
+    }
+
+    const triggerAtJst = normalizeJstIsoToMinute(job.triggerAtJst);
+    if (!triggerAtJst || triggerAtJst === job.triggerAtJst) {
+      return job;
+    }
+
+    const normalizedJob = {
+      ...job,
+      triggerAtJst
+    };
+    await setStorageValue(STORAGE_KEYS.JOB, normalizedJob);
+
+    const triggerEpoch = toEpoch(triggerAtJst);
+    if (Number.isFinite(triggerEpoch) && triggerEpoch > Date.now()) {
+      try {
+        await scheduleJobAlarms(normalizedJob);
+      } catch (_) {
+        await clearTicketEscapeAlarms();
+      }
+    } else {
+      await clearTicketEscapeAlarms();
+    }
+
+    await appendLog("NORMALIZE_JOB_TIME", "Stored job trigger time normalized to minute precision.", {
+      jobId: normalizedJob.jobId,
+      previousTriggerAtJst: job.triggerAtJst,
+      triggerAtJst
+    });
+    return normalizedJob;
   }
 
   function sanitizeJob(input) {
@@ -357,7 +407,8 @@ importScripts("../lib/shared.js");
       throw makeCodedError("E_URL_PARAMS_REQUIRED", "URL parameters are required.");
     }
 
-    const triggerEpoch = toEpoch(input.triggerAtJst);
+    const triggerAtJst = normalizeJstIsoToMinute(input.triggerAtJst);
+    const triggerEpoch = toEpoch(triggerAtJst);
     if (!Number.isFinite(triggerEpoch)) {
       throw makeCodedError("E_TRIGGER_CONFIRM_REQUIRED", "Invalid trigger time.");
     }
@@ -381,11 +432,12 @@ importScripts("../lib/shared.js");
     return {
       jobId: String(input.jobId || createId("job")),
       targetUrl,
-      triggerAtJst: input.triggerAtJst,
+      triggerAtJst,
       eventTitle: String(input.eventTitle || "").trim().slice(0, 200),
       clickIntervalMs: clampInt(input.clickIntervalMs, DEFAULT_JOB.clickIntervalMs, 5, 500),
       parallelTabCount: clampInt(input.parallelTabCount, DEFAULT_JOB.parallelTabCount, 1, 5),
       requireAgreement: input.requireAgreement !== false,
+      autoSelectRequiredOptions: input.autoSelectRequiredOptions !== false,
       ticketPlans,
       ...(heroImageUrl ? { heroImageUrl } : {}),
       ...(selectorOverrides ? { selectorOverrides } : {})
@@ -640,6 +692,7 @@ importScripts("../lib/shared.js");
         5
       ),
       requireAgreement: source.requireAgreement !== false,
+      autoSelectRequiredOptions: source.autoSelectRequiredOptions !== false,
       selectorOverrides
     };
   }
@@ -651,6 +704,7 @@ importScripts("../lib/shared.js");
       clickIntervalMs: job.clickIntervalMs,
       parallelTabCount: job.parallelTabCount,
       requireAgreement: job.requireAgreement,
+      autoSelectRequiredOptions: job.autoSelectRequiredOptions,
       selectorOverrides: job.selectorOverrides || current.selectorOverrides || null
     });
     await setStorageValue(STORAGE_KEYS.PREFERENCES, next);
