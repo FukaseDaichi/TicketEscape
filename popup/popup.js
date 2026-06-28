@@ -4,7 +4,15 @@
     return;
   }
 
-  const { MESSAGE_TYPES, STATUS } = shared;
+  const {
+    MESSAGE_TYPES,
+    STORAGE_KEYS,
+    STATUS,
+    isEscapeTicketPageUrl,
+    getErrorMessage,
+    buildReservationView,
+    reservationPhase
+  } = shared;
 
   /* ── Inline monoline icons (no emoji) — inherit currentColor ── */
   const ICON = {
@@ -26,7 +34,9 @@
 
   const el = {};
   let cdIntervalId = null;
-  let jobState = null;
+  let currentJob = null;
+  let currentStatus = null;
+  let activeTab = null;
 
   document.addEventListener("DOMContentLoaded", () => {
     bindElements();
@@ -44,14 +54,54 @@
 
   function bindEvents() {
     el.openOptions.addEventListener("click", () => {
-      void openOptionsPage();
+      void openConsole();
     });
+    el.mainCard.addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-action]");
+      if (!trigger) {
+        return;
+      }
+      if (trigger.dataset.action === "cancel-popup") {
+        void cancelPopupJob();
+      } else if (trigger.dataset.action === "open-console") {
+        void openConsole();
+      }
+    });
+    if (chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== "local") {
+          return;
+        }
+        if (changes[STORAGE_KEYS.JOB] || changes[STORAGE_KEYS.STATUS]) {
+          void loadStatus();
+        }
+      });
+    }
   }
 
-  /* Open the options page as a tab in the CURRENT window.
-     Reuse an already-open options tab if one exists (avoids duplicate
-     countdowns racing to the target URL), otherwise create a new tab
-     beside the current one. Falls back to the built-in opener on error. */
+  /* Open the detail console. Hand off the current tab as a draft when it is a
+     reservable escape.id ticket page; otherwise just open the console. */
+  async function openConsole() {
+    if (activeTab && isEscapeTicketPageUrl(activeTab.url)) {
+      try {
+        await sendMessage({
+          type: MESSAGE_TYPES.OPEN_OPTIONS_WITH_PAGE,
+          page: {
+            url: activeTab.url,
+            title: activeTab.title || "",
+            source: "popup"
+          }
+        });
+        return;
+      } catch (_) {
+        // Fall back to the plain console opener.
+      }
+    }
+    await openOptionsPage();
+  }
+
+  /* Open the options page as a tab in the CURRENT window, reusing an existing
+     options tab if one is open. Falls back to the built-in opener on error. */
   async function openOptionsPage() {
     const optionsUrl = chrome.runtime.getURL("options/options.html");
     try {
@@ -72,28 +122,55 @@
 
   async function loadStatus() {
     try {
-      const res = await sendMessage({ type: MESSAGE_TYPES.GET_STATUS });
+      const [res, tab] = await Promise.all([
+        sendMessage({ type: MESSAGE_TYPES.GET_STATUS }),
+        getActiveTab()
+      ]);
+      activeTab = tab;
       if (!res.ok) {
-        render(null, null);
+        currentJob = null;
+        currentStatus = null;
+        applyPhase("idle", NaN);
         renderEmpty("ステータス取得に失敗しました");
         return;
       }
-      render(res.job || null, res.status || null);
+      currentJob = res.job || null;
+      currentStatus = res.status || null;
+      render();
     } catch (err) {
-      render(null, null);
+      currentJob = null;
+      currentStatus = null;
+      applyPhase("idle", NaN);
       renderEmpty(err.message);
     }
   }
 
-  /* ── Phase model — maps STATUS to the CONSOLE state machine (DESIGN.md §3) ── */
+  /* ── Main render (single source: the shared reservation view) ── */
 
-  const FIRING_STATES = new Set([
-    STATUS.WARMUP_START,
-    STATUS.WAIT_FORM,
-    STATUS.PREPARE_TICKETS,
-    STATUS.CLICK_SUBMIT,
-    STATUS.VERIFY_RESULT
-  ]);
+  function render() {
+    const view = buildReservationView(currentJob, currentStatus);
+
+    if (view.hasReservation) {
+      renderReservation(view);
+      if (view.phase === "armed" || view.phase === "tminus") {
+        startCountdown(view.triggerEpoch);
+      } else {
+        stopCountdown();
+        applyPhase(view.phase, view.remainingMs);
+      }
+      return;
+    }
+
+    stopCountdown();
+    applyPhase(view.phase, view.remainingMs);
+    if (activeTab && isEscapeTicketPageUrl(activeTab.url)) {
+      renderOnTarget();
+    } else {
+      renderEmpty(null);
+    }
+  }
+
+  /* ── Phase UI (status chip + hero countdown / result) ── */
 
   const PHASE_META = {
     idle:    { code: "IDLE",    eyebrow: "カウントダウン", sub: "実行待機していません" },
@@ -101,53 +178,8 @@
     tminus:  { code: "T-MINUS", eyebrow: "まもなく発射",   sub: "このまま画面を閉じないでください" },
     firing:  { code: "FIRING",  eyebrow: "実行中",         sub: "カート投入を実行しています" },
     success: { code: "SECURED", title: "確保成功",         sub: "カート投入が完了しました" },
-    failed:  { code: "FAILED",  title: "実行失敗",         sub: "設定画面でログを確認してください" }
+    failed:  { code: "FAILED",  title: "実行失敗",         sub: "詳細コンソールでログを確認してください" }
   };
-
-  function phaseOf(state, remainingMs) {
-    if (state === STATUS.SUCCESS) return "success";
-    if (state === STATUS.FAILED) return "failed";
-    if (FIRING_STATES.has(state)) return "firing";
-    const hasRemaining = Number.isFinite(remainingMs);
-    if (hasRemaining && remainingMs <= 0) return "firing";
-    if (state === STATUS.WAIT_TRIGGER || (hasRemaining && remainingMs > 0)) {
-      return remainingMs <= 60000 ? "tminus" : "armed";
-    }
-    return "idle";
-  }
-
-  /* ── Main render ── */
-
-  function render(job, statusObj) {
-    jobState = (statusObj && statusObj.state) ? statusObj.state : STATUS.IDLE;
-
-    if (!job) {
-      const phase = jobState === STATUS.SUCCESS
-        ? "success"
-        : (jobState === STATUS.FAILED ? "failed" : "idle");
-      applyPhase(phase, NaN);
-      if (phase === "idle") {
-        renderEmpty(null);
-      }
-      stopCountdown();
-      return;
-    }
-
-    const triggerEpoch = Date.parse(String(job.triggerAtJst || ""));
-    const remaining = Number.isFinite(triggerEpoch) ? triggerEpoch - Date.now() : NaN;
-    const phase = phaseOf(jobState, remaining);
-
-    renderJobCard(job);
-
-    if (phase === "armed" || phase === "tminus") {
-      startCountdown(triggerEpoch);
-    } else {
-      stopCountdown();
-      applyPhase(phase, remaining);
-    }
-  }
-
-  /* ── Phase UI (chip + hero stay in sync) ── */
 
   function applyPhase(phase, remainingMs) {
     const meta = PHASE_META[phase] || PHASE_META.idle;
@@ -183,7 +215,7 @@
 
     function tick() {
       const remaining = triggerEpoch - Date.now();
-      const phase = phaseOf(jobState, remaining);
+      const phase = reservationPhase(currentStatus && currentStatus.state, remaining);
       applyPhase(phase, remaining);
       if (phase !== "armed" && phase !== "tminus") {
         stopCountdown();
@@ -201,49 +233,64 @@
     }
   }
 
-  /* ── Job card ── */
+  /* ── Reservation summary (visual dashboard, view + cancel only) ── */
 
-  function renderJobCard(job) {
-    const eventTitle = String(job.eventTitle || "").trim();
-    const url        = String(job.targetUrl || "");
-    const triggerJst = formatJst(job.triggerAtJst);
-    const plans      = Array.isArray(job.ticketPlans) ? job.ticketPlans : [];
-    const active     = plans.filter((p) => Number(p.targetQty) > 0);
+  function renderReservation(view) {
+    const titleHtml = view.eventTitle
+      ? `<div class="ev-title">${esc(view.eventTitle)}</div>`
+      : `<div class="ev-title empty">イベント名は未取得です（詳細コンソールで読み取ると取得）</div>`;
 
-    const titleHtml = eventTitle
-      ? `<div class="ev-title">${esc(eventTitle)}</div>`
-      : `<div class="ev-title empty">イベント名は未取得です（確認で取得）</div>`;
+    const heroImgHtml = view.heroImageUrl
+      ? `<img class="hero-img" src="${esc(view.heroImageUrl)}" alt="" referrerpolicy="no-referrer" />`
+      : "";
 
-    const ticketHtml = active.length
-      ? `<div class="chips">${active.map((p) =>
+    const ticketHtml = view.ticketSummary.length
+      ? `<div class="chips">${view.ticketSummary.map((p) =>
           `<span class="tchip">${ICON.ticketSm}${esc(p.ticketLabel)}<span class="qty">×${Number(p.targetQty)}</span></span>`
         ).join("")}</div>`
       : `<div class="meta-value">未設定</div>`;
 
     el.mainCard.innerHTML = `
-      <div class="eyebrow">イベント</div>
+      ${heroImgHtml}
+      <div class="eyebrow">予約中のチケット</div>
       ${titleHtml}
-      <div class="ev-url" title="${esc(url)}">${ICON.link}<span>${esc(shortenUrl(url))}</span></div>
+      <div class="ev-url" title="${esc(view.targetUrl)}">${ICON.link}<span>${esc(shortenUrl(view.targetUrl))}</span></div>
       <div class="panel-div"></div>
       <div class="meta">
         <div class="meta-row">
           <div class="meta-ico">${ICON.calendar}</div>
           <div class="meta-info">
             <div class="meta-label">実行時刻 (JST)</div>
-            <div class="meta-value mono">${esc(triggerJst)}</div>
+            <div class="meta-value mono">${esc(view.triggerJstText || "未設定")}</div>
           </div>
         </div>
         <div class="meta-row">
           <div class="meta-ico">${ICON.ticket}</div>
           <div class="meta-info">
-            <div class="meta-label">券種</div>
+            <div class="meta-label">購入チケット</div>
             ${ticketHtml}
           </div>
         </div>
-      </div>`;
+      </div>
+      <button class="danger-btn" type="button" data-action="cancel-popup" style="margin-top:13px">予約取り消し</button>
+    `;
+
+    // Inline event handlers are blocked by the extension CSP, so attach the
+    // hotlink fallback (§10) here instead of an onerror attribute.
+    const heroImg = el.mainCard.querySelector(".hero-img");
+    if (heroImg) {
+      heroImg.addEventListener("error", () => heroImg.remove());
+    }
   }
 
-  /* ── Empty state ── */
+  function renderOnTarget() {
+    el.mainCard.innerHTML = `
+      <div class="empty">
+        ${ICON.reticle}
+        <div class="empty-title">このページを予約できます</div>
+        <div class="empty-body">下の「詳細コンソールで開く」から券種を読み取って予約してください。</div>
+      </div>`;
+  }
 
   function renderEmpty(message) {
     const extra = message
@@ -252,12 +299,68 @@
     el.mainCard.innerHTML = `
       <div class="empty">
         ${ICON.reticle}
-        <div class="empty-title">設定がありません</div>
-        <div class="empty-body">設定画面で URL と実行時刻を保存してください。${extra}</div>
+        <div class="empty-title">予約はありません</div>
+        <div class="empty-body">「詳細コンソールで開く」から予約を作成してください。${extra}</div>
       </div>`;
   }
 
+  /* ── Cancel (re-reads the live job so it always targets the stored one) ── */
+
+  async function cancelPopupJob() {
+    if (!globalScope.confirm("現在の予約を取り消しますか？")) {
+      return;
+    }
+    let liveJob = currentJob;
+    try {
+      const jobResponse = await sendMessage({ type: MESSAGE_TYPES.GET_JOB });
+      if (jobResponse.ok) {
+        liveJob = jobResponse.job || null;
+      }
+    } catch (_) {
+      // Fall back to the local snapshot.
+    }
+    if (!liveJob || !liveJob.jobId) {
+      currentJob = null;
+      currentStatus = { state: STATUS.IDLE };
+      render();
+      return;
+    }
+    try {
+      const response = await sendMessage({
+        type: MESSAGE_TYPES.CANCEL_JOB,
+        expectedJobId: liveJob.jobId
+      });
+      if (!response.ok) {
+        globalScope.alert(`予約取り消しに失敗しました: ${formatResponseError(response)}`);
+        await loadStatus();
+        return;
+      }
+      currentJob = null;
+      currentStatus = { state: STATUS.IDLE };
+      render();
+    } catch (error) {
+      globalScope.alert(`予約取り消しに失敗しました: ${error.message}`);
+      await loadStatus();
+    }
+  }
+
   /* ── Helpers ── */
+
+  async function getActiveTab() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      return tabs && tabs.length ? tabs[0] : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function formatResponseError(response) {
+    if (!response) {
+      return "unknown error";
+    }
+    return getErrorMessage(response.code, response.error || "unknown error");
+  }
 
   function fmtCountdown(ms) {
     const tot = Math.ceil(ms / 1000);
@@ -266,27 +369,6 @@
     const s = tot % 60;
     const p = (n) => String(n).padStart(2, "0");
     return `${p(h)}:${p(m)}:${p(s)}`;
-  }
-
-  function formatJst(value) {
-    const epoch = Date.parse(String(value || ""));
-    if (!Number.isFinite(epoch)) {
-      return "未設定";
-    }
-    const fmt = new Intl.DateTimeFormat("ja-JP", {
-      timeZone: "Asia/Tokyo",
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-      hour12: false
-    });
-    const parts = fmt.formatToParts(new Date(epoch));
-    const map = Object.create(null);
-    for (const p of parts) {
-      if (p.type !== "literal") {
-        map[p.type] = p.value;
-      }
-    }
-    return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second}`;
   }
 
   function shortenUrl(url) {

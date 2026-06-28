@@ -82,4 +82,4 @@ The content script uses heuristic selectors for `escape.id`'s form structure:
 - Ticket list: scored `<ul>` element inside the form (prefers lists with labels + counter controls)
 - Counter controls: pattern `BUTTON > P > BUTTON` where `P` contains a digit
 
-`selectorOverrides` on the job object allows overriding `formRoot` and `submitButton` CSS selectors when the site's DOM changes.
+`selectorOverrides` on the job object allows overriding `formRoot`, `submitButton`, and `heroImage` CSS selectors when the site's DOM changes.
